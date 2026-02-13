@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ proyecto.nombre }} - Sistema de Tareas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h2">{{ proyecto.nombre }}</h1>
+        <p class="text-muted mb-0">{{ proyecto.descripcion }}</p>
+    </div>
+    <div>
+        {% if proyecto.creador == user %}
+        <a href="{% url 'proyecto_editar' proyecto.pk %}" class="btn btn-outline-primary">
+            <i class="bi bi-pencil me-2"></i>Editar
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="text-muted">Estado</h6>
+                <span class="badge bg-{{ proyecto.estado }}">{{ proyecto.get_estado_display }}</span>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="text-muted">Progreso</h6>
+                <h4>{{ proyecto.progreso }}%</h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="text-muted">Tareas</h6>
+                <h4>{{ proyecto.total_tareas }}</h4>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="text-muted">Completadas</h6>
+                <h4>{{ proyecto.tareas_completadas }}</h4>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <h5 class="mb-0">Tareas del Proyecto</h5>
+        <a href="{% url 'tarea_crear' %}" class="btn btn-sm btn-primary">
+            <i class="bi bi-plus-circle me-1"></i>Nueva Tarea
+        </a>
+    </div>
+    <div class="card-body">
+        {% if tareas %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Tarea</th>
+                        <th>Responsable</th>
+                        <th>Estado</th>
+                        <th>Prioridad</th>
+                        <th>Vencimiento</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tarea in tareas %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'tarea_detalle' tarea.pk %}" class="text-decoration-none">
+                                {{ tarea.titulo }}
+                            </a>
+                        </td>
+                        <td>{{ tarea.responsable.get_full_name|default:tarea.responsable.username }}</td>
+                        <td><span class="badge bg-secondary">{{ tarea.get_estado_display }}</span></td>
+                        <td><span class="badge badge-prioridad-{{ tarea.prioridad }}">{{ tarea.get_prioridad_display }}</span></td>
+                        <td>
+                            {% if tarea.fecha_vencimiento %}
+                                {{ tarea.fecha_vencimiento|date:"d/m/Y" }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'tarea_detalle' tarea.pk %}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted text-center py-4">No hay tareas en este proyecto</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,165 @@
+
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - Sistema de Tareas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h2 mb-0">Dashboard</h1>
+        <p class="text-muted">Bienvenido, {{ user.get_full_name|default:user.username }}</p>
+    </div>
+    <div>
+        <span class="badge bg-primary">{{ user.get_rol_display }}</span>
+    </div>
+</div>
+
+<!-- Tarjetas de estadísticas -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-title text-white-50">Proyectos Activos</h6>
+                        <h2 class="mb-0">{{ proyectos_activos }}</h2>
+                    </div>
+                    <i class="bi bi-folder" style="font-size: 2.5rem; opacity: 0.3;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card text-white bg-warning">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-title text-white-50">Tareas Pendientes</h6>
+                        <h2 class="mb-0">{{ tareas_pendientes }}</h2>
+                    </div>
+                    <i class="bi bi-list-task" style="font-size: 2.5rem; opacity: 0.3;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card text-white bg-info">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-title text-white-50">En Progreso</h6>
+                        <h2 class="mb-0">{{ tareas_en_progreso }}</h2>
+                    </div>
+                    <i class="bi bi-arrow-repeat" style="font-size: 2.5rem; opacity: 0.3;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card text-white bg-success">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="card-title text-white-50">Completadas</h6>
+                        <h2 class="mb-0">{{ tareas_completadas }}</h2>
+                    </div>
+                    <i class="bi bi-check-circle" style="font-size: 2.5rem; opacity: 0.3;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tareas recientes -->
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Tareas Recientes</h5>
+            </div>
+            <div class="card-body">
+                {% if tareas_recientes %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Tarea</th>
+                                <th>Proyecto</th>
+                                <th>Prioridad</th>
+                                <th>Estado</th>
+                                <th>Vencimiento</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tarea in tareas_recientes %}
+                            <tr>
+                                <td>
+                                    <a href="#" class="text-decoration-none">{{ tarea.titulo }}</a>
+                                </td>
+                                <td>{{ tarea.proyecto.nombre }}</td>
+                                <td>
+                                    <span class="badge badge-prioridad-{{ tarea.prioridad }}">
+                                        {{ tarea.get_prioridad_display }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ tarea.get_estado_display }}</span>
+                                </td>
+                                <td>
+                                    {% if tarea.fecha_vencimiento %}
+                                        {{ tarea.fecha_vencimiento|date:"d/m/Y" }}
+                                        {% if tarea.esta_vencida %}
+                                            <i class="bi bi-exclamation-triangle text-danger"></i>
+                                        {% endif %}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center py-4">No tienes tareas asignadas</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Proyectos Activos</h5>
+            </div>
+            <div class="card-body">
+                {% if proyectos %}
+                <ul class="list-group list-group-flush">
+                    {% for proyecto in proyectos %}
+                    <li class="list-group-item px-0">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">{{ proyecto.nombre }}</h6>
+                                <small class="text-muted">{{ proyecto.total_tareas }} tareas</small>
+                            </div>
+                            <div class="text-end">
+                                <small class="text-muted d-block">{{ proyecto.progreso }}%</small>
+                                <div class="progress" style="width: 80px; height: 5px;">
+                                    <div class="progress-bar" style="width: {{ proyecto.progreso }}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <p class="text-muted text-center py-4">No hay proyectos activos</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

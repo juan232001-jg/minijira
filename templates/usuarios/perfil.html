@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block title %}Mi Perfil - Sistema de Tareas{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body text-center">
+                {% if user.foto %}
+                    <img src="{{ user.foto.url }}" class="rounded-circle mb-3" style="width:150px;height:150px;object-fit:cover;" alt="Foto de perfil">
+                {% else %}
+                    <i class="bi bi-person-circle" style="font-size: 150px; color: #ddd;"></i>
+                {% endif %}
+                
+                <h4 class="mb-1">{{ user.get_full_name }}</h4>
+                <p class="text-muted mb-3">@{{ user.username }}</p>
+                <span class="badge bg-primary">{{ user.get_rol_display }}</span>
+                
+                <hr>
+                
+                <a href="{% url 'perfil_editar' %}" class="btn btn-primary w-100">
+                    <i class="bi bi-pencil me-2"></i>Editar Perfil
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Información Personal</h5>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-4 text-muted">Nombre completo:</div>
+                    <div class="col-md-8"><strong>{{ user.get_full_name }}</strong></div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-4 text-muted">Email:</div>
+                    <div class="col-md-8">{{ user.email }}</div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-4 text-muted">Teléfono:</div>
+                    <div class="col-md-8">{{ user.telefono|default:"No especificado" }}</div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-4 text-muted">Empresa:</div>
+                    <div class="col-md-8">{{ user.empresa|default:"No especificado" }}</div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-4 text-muted">Fecha de registro:</div>
+                    <div class="col-md-8">{{ user.date_joined|date:"d/m/Y H:i" }}</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">Estadísticas</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-4">
+                        <h3 class="text-primary">{{ user.proyectos.count }}</h3>
+                        <p class="text-muted">Proyectos</p>
+                    </div>
+                    <div class="col-md-4">
+                        <h3 class="text-warning">{{ user.tareas_asignadas.count }}</h3>
+                        <p class="text-muted">Tareas Asignadas</p>
+                    </div>
+                    <div class="col-md-4">
+                        <h3 class="text-success">{{ tareas_completadas }}</h3>
+                        <p class="text-muted">Tareas Completadas</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
