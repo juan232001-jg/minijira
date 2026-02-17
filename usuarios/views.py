@@ -1,17 +1,27 @@
 # usuarios/views.py
 
+"""
+Vistas para la gestión de usuarios, incluyendo autenticación (login/logout),
+registro y gestión de perfiles.
+"""
+
 from django.shortcuts import render, redirect
-from django.contrib.auth import login, authenticate, logout
+from django.contrib.auth import login, authenticate, logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.views.decorators.http import require_http_methods
-from .forms import RegistroForm, LoginForm
+from django.utils import timezone
+from datetime import timedelta
+from .forms import RegistroForm, LoginForm, PerfilEditarForm, CambiarPasswordForm
 from .models import Usuario
+from proyectos.models import Proyecto
+from tareas.models import Tarea
+from historial.models import HistorialTarea
+
 
 def login_view(request):
-    """Vista de inicio de sesión"""
-    
-    # Si el usuario ya está autenticado, redirigir al dashboard
+    """
+    Gestiona el inicio de sesión de los usuarios.
+    """
     if request.user.is_authenticated:
         return redirect('dashboard')
     
@@ -23,24 +33,18 @@ def login_view(request):
             password = form.cleaned_data.get('password')
             remember_me = form.cleaned_data.get('remember_me')
             
-            # Autenticar usuario
             user = authenticate(username=username, password=password)
             
             if user is not None:
-                # Login exitoso
                 login(request, user)
                 
-                # Configurar duración de la sesión
                 if not remember_me:
-                    # Sesión expira al cerrar el navegador
                     request.session.set_expiry(0)
                 else:
-                    # Sesión dura 30 días
-                    request.session.set_expiry(2592000)  # 30 días en segundos
+                    request.session.set_expiry(2592000)
                 
                 messages.success(request, f'¡Bienvenido de nuevo, {user.get_full_name() or user.username}!')
                 
-                # Redirigir a la página solicitada o al dashboard
                 next_url = request.GET.get('next', 'dashboard')
                 return redirect(next_url)
             else:
@@ -52,10 +56,11 @@ def login_view(request):
     
     return render(request, 'registration/login.html', {'form': form})
 
+
 def registro_view(request):
-    """Vista de registro de nuevos usuarios"""
-    
-    # Si el usuario ya está autenticado, redirigir al dashboard
+    """
+    Procesa el registro de nuevos usuarios en el sistema.
+    """
     if request.user.is_authenticated:
         return redirect('dashboard')
     
@@ -63,10 +68,8 @@ def registro_view(request):
         form = RegistroForm(request.POST)
         
         if form.is_valid():
-            # Crear usuario
             user = form.save()
             
-            # Autenticar y hacer login automáticamente
             username = form.cleaned_data.get('username')
             password = form.cleaned_data.get('password1')
             user = authenticate(username=username, password=password)
@@ -82,41 +85,128 @@ def registro_view(request):
     
     return render(request, 'registration/registro.html', {'form': form})
 
+
 @login_required
 def logout_view(request):
-    """Vista de cierre de sesión"""
-    
+    """
+    Finaliza la sesión actual del usuario.
+    """
     username = request.user.username
     logout(request)
     messages.success(request, f'¡Hasta pronto, {username}!')
     return redirect('login')
 
-@login_required
-def perfil_view(request):
-    """Vista del perfil de usuario"""
-    return render(request, 'usuarios/perfil.html')
 
 @login_required
-@require_http_methods(["GET", "POST"])
+def perfil_view(request):
+    """Vista del perfil del usuario con estadísticas completas"""
+    
+    user = request.user
+    
+    # ===== ESTADÍSTICAS DE PROYECTOS =====
+    if user.rol == 'admin':
+        proyectos = Proyecto.objects.all()
+        tareas_base = Tarea.objects.all()
+    elif user.rol == 'manager':
+        proyectos = Proyecto.objects.filter(creador=user)
+        tareas_base = Tarea.objects.filter(proyecto__creador=user)
+    else:
+        proyectos = Proyecto.objects.filter(miembros=user)
+        tareas_base = Tarea.objects.filter(proyecto__miembros=user)
+    
+    # ===== CONTADORES DE TAREAS =====
+    estadisticas_tareas = {
+        'total': tareas_base.count(),
+        'pendiente': tareas_base.filter(estado='pendiente').count(),
+        'en_progreso': tareas_base.filter(estado='en_progreso').count(),
+        'en_revision': tareas_base.filter(estado='en_revision').count(),
+        'completado': tareas_base.filter(estado='completado').count(),
+        'vencidas': tareas_base.filter(
+            fecha_vencimiento__lt=timezone.now().date()
+        ).exclude(estado='completado').count(),
+    }
+    
+    # ===== TAREAS ASIGNADAS A MÍ =====
+    mis_tareas = tareas_base.filter(responsable=user).count()
+    
+    # ===== PRODUCTIVIDAD MENSUAL (últimos 30 días) =====
+    hace_30_dias = timezone.now() - timedelta(days=30)
+    tareas_mes = tareas_base.filter(
+        estado='completado',
+        fecha_completado__gte=hace_30_dias
+    ).count()
+    
+    # ===== PRODUCTIVIDAD POR DÍA (últimos 7 días) =====
+    productividad_semanal = []
+    labels_dias = []
+    
+    for i in range(6, -1, -1):
+        dia = timezone.now().date() - timedelta(days=i)
+        cantidad = tareas_base.filter(
+            estado='completado',
+            fecha_completado__date=dia
+        ).count()
+        productividad_semanal.append(cantidad)
+        labels_dias.append(dia.strftime('%d/%m'))
+    
+    # ===== ACTIVIDAD RECIENTE =====
+    actividad_reciente = HistorialTarea.objects.filter(
+        usuario=user
+    ).select_related('tarea').order_by('-creado_en')[:10]
+    
+    # ===== TAREAS RECIENTES ASIGNADAS =====
+    tareas_recientes = tareas_base.filter(
+        responsable=user
+    ).order_by('-creado_en')[:5]
+    
+    context = {
+        'usuario': user,
+        'proyectos_count': proyectos.count(),
+        'estadisticas_tareas': estadisticas_tareas,
+        'mis_tareas': mis_tareas,
+        'tareas_mes': tareas_mes,
+        'actividad_reciente': actividad_reciente,
+        'tareas_recientes': tareas_recientes,
+        # Datos para gráfica
+        'chart_productividad': productividad_semanal,
+        'chart_labels': labels_dias,
+    }
+    
+    return render(request, 'usuarios/perfil.html', context)
+
+
+@login_required
 def perfil_editar_view(request):
-    """Vista para editar perfil de usuario"""
+    """Editar información del perfil"""
     
     if request.method == 'POST':
-        user = request.user
-        
-        # Actualizar datos
-        user.first_name = request.POST.get('first_name', '')
-        user.last_name = request.POST.get('last_name', '')
-        user.email = request.POST.get('email', '')
-        user.telefono = request.POST.get('telefono', '')
-        user.empresa = request.POST.get('empresa', '')
-        
-        # Manejar foto de perfil
-        if 'foto' in request.FILES:
-            user.foto = request.FILES['foto']
-        
-        user.save()
-        messages.success(request, 'Perfil actualizado exitosamente.')
-        return redirect('perfil')
+        form = PerfilEditarForm(request.POST, request.FILES, instance=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, '✅ Perfil actualizado correctamente.')
+            return redirect('perfil')
+    else:
+        form = PerfilEditarForm(instance=request.user)
     
-    return render(request, 'usuarios/perfil_editar.html')
+    return render(request, 'usuarios/perfil_editar.html', {
+        'form': form
+    })
+
+
+@login_required
+def cambiar_password_view(request):
+    """Cambiar contraseña del usuario"""
+    
+    if request.method == 'POST':
+        form = CambiarPasswordForm(user=request.user, data=request.POST)
+        if form.is_valid():
+            user = form.save()
+            update_session_auth_hash(request, user)
+            messages.success(request, '✅ Contraseña cambiada correctamente.')
+            return redirect('perfil')
+    else:
+        form = CambiarPasswordForm(user=request.user)
+    
+    return render(request, 'usuarios/cambiar_password.html', {
+        'form': form
+    })

@@ -1,31 +1,33 @@
-# proyectos/forms.py
+"""
+Formularios para la creación y edición de proyectos.
+Incluye validación de fechas y filtrado de miembros del equipo según el rol del usuario.
+"""
 
 from django import forms
 from .models import Proyecto
 from usuarios.models import Usuario
 
 class ProyectoForm(forms.ModelForm):
-    """Formulario para crear y editar proyectos"""
+    """
+    Formulario vinculado al modelo Proyecto.
+    Implementa lógica personalizada en el constructor para restringir quiénes pueden ser miembros.
+    """
     
-    # ← ESTE ES EL FIX: Recibir y manejar el argumento 'user'
     def __init__(self, *args, **kwargs):
-        self.user = kwargs.pop('user', None)  # ← Extrae 'user' antes de llamar super()
+        # Captura del usuario actual para la aplicación de lógica de negocio basada en roles
+        self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         
-        # Filtrar miembros según el rol
+        # Filtrado de la lista de miembros potenciales
         if self.user:
-            if self.user.rol == 'admin':
-                # Admin puede agregar a cualquier usuario
-                self.fields['miembros'].queryset = Usuario.objects.filter(
-                    is_active=True
-                )
-            else:
-                # Manager solo puede agregar usuarios activos
-                self.fields['miembros'].queryset = Usuario.objects.filter(
-                    is_active=True
-                )
+            # Los miembros seleccionables deben ser usuarios activos en la plataforma
+            self.fields['miembros'].queryset = Usuario.objects.filter(
+                is_active=True
+            ).order_by('first_name')
+            # Nota: El administrador podría tener reglas adicionales, pero aquí se unifica a usuarios activos
     
     class Meta:
+        """Metadatos y configuración de widgets para el formulario de Proyecto."""
         model = Proyecto
         fields = [
             'nombre',
@@ -71,12 +73,15 @@ class ProyectoForm(forms.ModelForm):
         }
     
     def clean(self):
-        """Validaciones adicionales del formulario"""
+        """
+        Validación cruzada de campos. 
+        Asegura que la cronología del proyecto (inicio y fin) sea lógica.
+        """
         cleaned_data = super().clean()
         fecha_inicio = cleaned_data.get('fecha_inicio')
         fecha_fin = cleaned_data.get('fecha_fin')
         
-        # Validar que fecha_fin sea mayor que fecha_inicio
+        # Restricción: La fecha de finalización no puede ocurrir antes de la fecha de inicio
         if fecha_inicio and fecha_fin:
             if fecha_fin < fecha_inicio:
                 raise forms.ValidationError(

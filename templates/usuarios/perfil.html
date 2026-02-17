@@ -2,84 +2,286 @@
 
 {% block title %}Mi Perfil - Sistema de Tareas{% endblock %}
 
+{% block extra_css %}
+<style>
+    .profile-img {
+        width: 150px;
+        height: 150px;
+        object-fit: cover;
+        border-radius: 50%;
+        border: 4px solid #fff;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .stat-card {
+        border-radius: 10px;
+        transition: transform 0.2s;
+    }
+    .stat-card:hover {
+        transform: translateY(-3px);
+    }
+    .activity-item {
+        border-left: 3px solid #e9ecef;
+        padding-left: 15px;
+        margin-bottom: 20px;
+    }
+    .activity-item:hover {
+        border-left-color: #0d6efd;
+        background: #f8f9fa;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
+
 <div class="row">
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-body text-center">
-                {% if user.foto %}
-                    <img src="{{ user.foto.url }}" class="rounded-circle mb-3" style="width:150px;height:150px;object-fit:cover;" alt="Foto de perfil">
+
+    <!-- ===== COLUMNA IZQUIERDA: INFO PERSONAL ===== -->
+    <div class="col-lg-4 mb-4">
+        
+        <!-- Card de Perfil -->
+        <div class="card shadow-sm">
+            <div class="card-body text-center py-4">
+                
+                <!-- Foto de Perfil -->
+                {% if usuario.foto %}
+                    <img src="{{ usuario.foto.url }}" 
+                         alt="{{ usuario.get_full_name }}"
+                         class="profile-img mb-3">
                 {% else %}
-                    <i class="bi bi-person-circle" style="font-size: 150px; color: #ddd;"></i>
+                    <div class="profile-img mx-auto mb-3 bg-primary d-flex align-items-center justify-content-center text-white"
+                         style="font-size: 3rem; font-weight: bold;">
+                        {{ usuario.first_name|first|upper }}{{ usuario.last_name|first|upper }}
+                    </div>
                 {% endif %}
                 
-                <h4 class="mb-1">{{ user.get_full_name }}</h4>
-                <p class="text-muted mb-3">@{{ user.username }}</p>
-                <span class="badge bg-primary">{{ user.get_rol_display }}</span>
+                <!-- Nombre -->
+                <h4 class="mb-1">{{ usuario.get_full_name }}</h4>
+                <p class="text-muted mb-2">@{{ usuario.username }}</p>
+                
+                <!-- Rol -->
+                {% if usuario.rol == 'admin' %}
+                    <span class="badge bg-danger mb-3">👑 Administrador</span>
+                {% elif usuario.rol == 'manager' %}
+                    <span class="badge bg-primary mb-3">👔 Manager</span>
+                {% else %}
+                    <span class="badge bg-success mb-3">👤 Miembro</span>
+                {% endif %}
                 
                 <hr>
                 
-                <a href="{% url 'perfil_editar' %}" class="btn btn-primary w-100">
-                    <i class="bi bi-pencil me-2"></i>Editar Perfil
-                </a>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-header bg-white">
-                <h5 class="mb-0">Información Personal</h5>
-            </div>
-            <div class="card-body">
-                <div class="row mb-3">
-                    <div class="col-md-4 text-muted">Nombre completo:</div>
-                    <div class="col-md-8"><strong>{{ user.get_full_name }}</strong></div>
+                <!-- Información -->
+                <div class="text-start">
+                    <p class="mb-2">
+                        <i class="bi bi-envelope me-2 text-muted"></i>
+                        <small>{{ usuario.email }}</small>
+                    </p>
+                    {% if usuario.telefono %}
+                    <p class="mb-2">
+                        <i class="bi bi-telephone me-2 text-muted"></i>
+                        <small>{{ usuario.telefono }}</small>
+                    </p>
+                    {% endif %}
+                    {% if usuario.empresa %}
+                    <p class="mb-2">
+                        <i class="bi bi-building me-2 text-muted"></i>
+                        <small>{{ usuario.empresa }}</small>
+                    </p>
+                    {% endif %}
+                    <p class="mb-0">
+                        <i class="bi bi-calendar me-2 text-muted"></i>
+                        <small>Miembro desde {{ usuario.date_joined|date:"d/m/Y" }}</small>
+                    </p>
                 </div>
                 
-                <div class="row mb-3">
-                    <div class="col-md-4 text-muted">Email:</div>
-                    <div class="col-md-8">{{ user.email }}</div>
+                <hr>
+                
+                <!-- Botones de Acción -->
+                <div class="d-grid gap-2">
+                    <a href="{% url 'perfil_editar' %}" 
+                       class="btn btn-primary">
+                        <i class="bi bi-pencil me-2"></i>Editar Perfil
+                    </a>
+                    <a href="{% url 'cambiar_password' %}" 
+                       class="btn btn-outline-secondary">
+                        <i class="bi bi-key me-2"></i>Cambiar Contraseña
+                    </a>
                 </div>
                 
-                <div class="row mb-3">
-                    <div class="col-md-4 text-muted">Teléfono:</div>
-                    <div class="col-md-8">{{ user.telefono|default:"No especificado" }}</div>
-                </div>
-                
-                <div class="row mb-3">
-                    <div class="col-md-4 text-muted">Empresa:</div>
-                    <div class="col-md-8">{{ user.empresa|default:"No especificado" }}</div>
-                </div>
-                
-                <div class="row mb-3">
-                    <div class="col-md-4 text-muted">Fecha de registro:</div>
-                    <div class="col-md-8">{{ user.date_joined|date:"d/m/Y H:i" }}</div>
-                </div>
             </div>
         </div>
         
-        <div class="card mt-4">
-            <div class="card-header bg-white">
-                <h5 class="mb-0">Estadísticas</h5>
-            </div>
-            <div class="card-body">
-                <div class="row text-center">
-                    <div class="col-md-4">
-                        <h3 class="text-primary">{{ user.proyectos.count }}</h3>
-                        <p class="text-muted">Proyectos</p>
-                    </div>
-                    <div class="col-md-4">
-                        <h3 class="text-warning">{{ user.tareas_asignadas.count }}</h3>
-                        <p class="text-muted">Tareas Asignadas</p>
-                    </div>
-                    <div class="col-md-4">
-                        <h3 class="text-success">{{ tareas_completadas }}</h3>
-                        <p class="text-muted">Tareas Completadas</p>
+    </div>
+
+    <!-- ===== COLUMNA DERECHA: ESTADÍSTICAS Y ACTIVIDAD ===== -->
+    <div class="col-lg-8">
+        
+        <!-- Estadísticas Rápidas -->
+        <div class="row g-3 mb-4">
+            
+            <div class="col-6 col-md-4">
+                <div class="card stat-card border-0 shadow-sm">
+                    <div class="card-body text-center py-3">
+                        <h3 class="text-primary mb-0">{{ proyectos_count }}</h3>
+                        <small class="text-muted">Proyectos</small>
                     </div>
                 </div>
             </div>
+            
+            <div class="col-6 col-md-4">
+                <div class="card stat-card border-0 shadow-sm">
+                    <div class="card-body text-center py-3">
+                        <h3 class="text-warning mb-0">{{ mis_tareas }}</h3>
+                        <small class="text-muted">Tareas Asignadas</small>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-6 col-md-4">
+                <div class="card stat-card border-0 shadow-sm">
+                    <div class="card-body text-center py-3">
+                        <h3 class="text-success mb-0">{{ estadisticas_tareas.completado }}</h3>
+                        <small class="text-muted">Completadas</small>
+                    </div>
+                </div>
+            </div>
+            
         </div>
+
+        <!-- Resumen de Tareas -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-list-task me-2"></i>
+                    Resumen de Tareas
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6 col-md-3 mb-3">
+                        <div class="fs-3 text-warning">{{ estadisticas_tareas.pendiente }}</div>
+                        <small class="text-muted">⏳ Pendientes</small>
+                    </div>
+                    <div class="col-6 col-md-3 mb-3">
+                        <div class="fs-3 text-primary">{{ estadisticas_tareas.en_progreso }}</div>
+                        <small class="text-muted">🔄 En Progreso</small>
+                    </div>
+                    <div class="col-6 col-md-3 mb-3">
+                        <div class="fs-3 text-info">{{ estadisticas_tareas.en_revision }}</div>
+                        <small class="text-muted">👁️ En Revisión</small>
+                    </div>
+                    <div class="col-6 col-md-3 mb-3">
+                        <div class="fs-3 text-success">{{ estadisticas_tareas.completado }}</div>
+                        <small class="text-muted">✅ Terminadas</small>
+                    </div>
+                </div>
+                
+                {% if estadisticas_tareas.vencidas > 0 %}
+                <div class="alert alert-danger mb-0">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    Tienes <strong>{{ estadisticas_tareas.vencidas }}</strong> tarea{{ estadisticas_tareas.vencidas|pluralize }} vencida{{ estadisticas_tareas.vencidas|pluralize }}.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Productividad Semanal -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-graph-up me-2"></i>
+                    Productividad (Últimos 7 Días)
+                </h5>
+            </div>
+            <div class="card-body">
+                <canvas id="chartProductividad" height="80"></canvas>
+            </div>
+        </div>
+
+        <!-- Actividad Reciente -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-clock-history me-2"></i>
+                    Actividad Reciente
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if actividad_reciente %}
+                    {% for actividad in actividad_reciente %}
+                    <div class="activity-item">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <!-- Icono según tipo -->
+                                {% if actividad.tipo == 'creacion' %}
+                                    <span class="badge bg-success me-2">✨</span>
+                                {% elif actividad.tipo == 'estado' %}
+                                    <span class="badge bg-primary me-2">🔄</span>
+                                {% elif actividad.tipo == 'prioridad' %}
+                                    <span class="badge bg-warning me-2">🚩</span>
+                                {% elif actividad.tipo == 'comentario' %}
+                                    <span class="badge bg-secondary me-2">💬</span>
+                                {% else %}
+                                    <span class="badge bg-light me-2">✏️</span>
+                                {% endif %}
+                                
+                                <strong>{{ actividad.descripcion }}</strong>
+                                <br>
+                                <small class="text-muted">
+                                    <a href="{% url 'tarea_detalle' actividad.tarea.pk %}"
+                                       class="text-decoration-none">
+                                        {{ actividad.tarea.titulo }}
+                                    </a>
+                                </small>
+                            </div>
+                            <small class="text-muted text-nowrap ms-2">
+                                {{ actividad.creado_en|timesince }} atrás
+                            </small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted text-center py-3 mb-0">
+                        <i class="bi bi-inbox" style="font-size:2rem;"></i>
+                        <br>Sin actividad reciente
+                    </p>
+                {% endif %}
+            </div>
+        </div>
+
     </div>
 </div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const ctx = document.getElementById('chartProductividad').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: {{ chart_labels|safe }},
+            datasets: [{
+                label: 'Tareas Completadas',
+                data: {{ chart_productividad|safe }},
+                backgroundColor: 'rgba(25, 135, 84, 0.8)',
+                borderColor: 'rgba(25, 135, 84, 1)',
+                borderWidth: 2,
+                borderRadius: 6,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1 }
+                }
+            }
+        }
+    });
+</script>
 {% endblock %}

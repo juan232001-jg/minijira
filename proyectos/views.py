@@ -1,4 +1,8 @@
-# proyectos/views.py
+"""
+Vistas para la gestión de proyectos.
+Implementa el CRUD de proyectos con restricciones de acceso basadas en roles
+y visualización detallada incluyendo métricas de progreso de tareas.
+"""
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -14,21 +18,21 @@ from usuarios.permisos import (
 @login_required
 @todos_los_roles
 def proyecto_lista(request):
+    """
+    Despliega el listado de proyectos accesibles para el usuario actual.
+    - Admin: Visualiza la totalidad de los proyectos del sistema.
+    - Manager: Visualiza únicamente los proyectos bajo su autoría.
+    - Miembro: Visualiza los proyectos en los que ha sido asignado como participante.
+    """
     user = request.user
     
+    # Filtrado dinámico según el nivel de privilegios y participación
     if user.rol == 'admin':
-        # Admin ve absolutamente todos
         proyectos = Proyecto.objects.all().order_by('-creado_en')
     elif user.rol == 'manager':
-        # Manager ve solo los que creó
-        proyectos = Proyecto.objects.filter(
-            creador=user
-        ).order_by('-creado_en')
+        proyectos = Proyecto.objects.filter(creador=user).order_by('-creado_en')
     else:
-        # Miembro ve solo donde es miembro
-        proyectos = Proyecto.objects.filter(
-            miembros=user
-        ).order_by('-creado_en')
+        proyectos = Proyecto.objects.filter(miembros=user).order_by('-creado_en')
     
     context = {
         'proyectos': proyectos,
@@ -36,40 +40,62 @@ def proyecto_lista(request):
     }
     return render(request, 'proyectos/lista.html', context)
 
-
 @login_required
 @admin_o_manager
 def proyecto_crear(request):
-    """Crear nuevo proyecto"""
+    """
+    Gestiona la creación de nuevos proyectos.
+    Asigna automáticamente al usuario actual como creador y primer miembro del equipo.
+    """
     if request.method == 'POST':
         form = ProyectoForm(request.POST)
         if form.is_valid():
             proyecto = form.save(commit=False)
             proyecto.creador = request.user
             proyecto.save()
+            
+            # El creador se añade automáticamente a la lista de miembros
             proyecto.miembros.add(request.user)
-            form.save_m2m()
-            messages.success(request, '✅ Proyecto "{proyecto.nombre}" creado exitosamente.')
+            form.save_m2m() # Necesario para procesar el campo ManyToMany
+            
+            messages.success(request, f'✅ Proyecto "{proyecto.nombre}" creado exitosamente.')
             return redirect('proyecto_lista')
     else:
         form = ProyectoForm(user=request.user)
     
-    return render(request, 'proyectos/form.html', {'form': form , 'titulo': 'Crear Proyecto'})
+    return render(request, 'proyectos/form.html', {
+        'form': form, 
+        'titulo': 'Crear Proyecto'
+    })
 
 @login_required
 @todos_los_roles
 def proyecto_detalle(request, pk):
-    """Detalle de un proyecto"""
+    """
+    Muestra la información detallada de un proyecto, incluyendo sus tareas asociadas
+    y estadísticas de cumplimiento actualizadas.
+    """
     proyecto = get_object_or_404(Proyecto, pk=pk)
+
+    # Verificación de permisos de visibilidad antes de cargar datos sensibles
     if not VerificarPermiso.puede_ver_proyecto(request.user, proyecto):
         messages.error(request, '❌ No tienes acceso a este proyecto.')
         return redirect('proyecto_lista')
 
-    tareas = proyecto.tareas.all()
+    tareas = proyecto.tareas.all().order_by('-creado_en')
+
+    # Métricas de estado de las tareas para indicadores visuales
+    contadores = {
+        'pendiente': tareas.filter(estado='pendiente').count(),
+        'en_progreso': tareas.filter(estado='en_progreso').count(),
+        'en_revision': tareas.filter(estado='en_revision').count(),
+        'completado': tareas.filter(estado='completado').count(),
+    }
+
     context = {
         'proyecto': proyecto,
         'tareas': tareas,
-        # Permisos para el template
+        'contadores': contadores,
         'puede_editar': VerificarPermiso.puede_gestionar_proyecto(request.user, proyecto),
         'puede_eliminar': request.user.rol == 'admin' or (
             request.user.rol == 'manager' and proyecto.creador == request.user
@@ -80,7 +106,10 @@ def proyecto_detalle(request, pk):
 
 @login_required
 def proyecto_editar(request, pk):
-    """Editar proyecto"""
+    """
+    Permite la actualización de los metadatos y la composición del equipo de un proyecto.
+    Válido para administradores o para el manager creador del mismo.
+    """
     proyecto = get_object_or_404(Proyecto, pk=pk)
     
     if not VerificarPermiso.puede_gestionar_proyecto(request.user, proyecto):
@@ -104,7 +133,10 @@ def proyecto_editar(request, pk):
 
 @login_required
 def proyecto_eliminar(request, pk):
-    """Eliminar proyecto"""
+    """
+    Finaliza y elimina permanentemente un proyecto y todas sus dependencias.
+    Requiere confirmación previa por parte del usuario autorizado.
+    """
     proyecto = get_object_or_404(Proyecto, pk=pk)
     
     if not VerificarPermiso.puede_gestionar_proyecto(request.user, proyecto):

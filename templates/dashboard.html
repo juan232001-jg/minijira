@@ -1,165 +1,412 @@
-
 {% extends 'base.html' %}
+
+{% comment %}
+Plantilla del Tablero Principal (Dashboard).
+Visualiza métricas clave, gráficos interactivos de rendimiento y accesos rápidos a la actividad reciente.
+Referencia datos procesados en core/views.py.
+{% endcomment %}
 
 {% block title %}Dashboard - Sistema de Tareas{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* Estilos específicos para las tarjetas de información y gráficas */
+    .stat-card {
+        border-radius: 15px;
+        border: none;
+        transition: transform 0.2s;
+    }
+    .stat-card:hover {
+        transform: translateY(-3px);
+    }
+    .chart-card {
+        border-radius: 15px;
+        border: none;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    }
+    .proyecto-progress {
+        height: 8px;
+        border-radius: 10px;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
+
+<!-- Cabecera del Dashboard: Saludo y Fecha -->
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h1 class="h2 mb-0">Dashboard</h1>
-        <p class="text-muted">Bienvenido, {{ user.get_full_name|default:user.username }}</p>
+        <h1 class="h2 mb-0">
+            👋 Hola, {{ user.get_full_name|default:user.username }}
+        </h1>
+        <p class="text-muted mb-0">
+            {% now "l, d \d\e F \d\e Y" %}
+        </p>
     </div>
     <div>
-        <span class="badge bg-primary">{{ user.get_rol_display }}</span>
+        <!-- Etiqueta de perfil de usuario -->
+        {% if user.rol == 'admin' %}
+            <span class="badge bg-danger fs-6">👑 Administrador</span>
+        {% elif user.rol == 'manager' %}
+            <span class="badge bg-primary fs-6">👔 Manager</span>
+        {% else %}
+            <span class="badge bg-success fs-6">👤 Miembro</span>
+        {% endif %}
     </div>
 </div>
 
-<!-- Tarjetas de estadísticas -->
+<!-- SECCIÓN 1: KPI - Indicadores Clave de Desempeño (Tareas por estado) -->
+<div class="row g-3 mb-4">
+
+    <!-- Total de Tareas asignadas/visibles -->
+    <div class="col-6 col-md-3">
+        <div class="card stat-card text-white h-100"
+             style="background: linear-gradient(135deg, #667eea, #764ba2);">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="mb-1 opacity-75 small">Total Tareas</p>
+                        <h2 class="mb-0 fw-bold">{{ contadores.total }}</h2>
+                    </div>
+                    <i class="bi bi-list-task opacity-50" style="font-size:2.5rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tareas pendientes de inicio -->
+    <div class="col-6 col-md-3">
+        <div class="card stat-card text-white h-100"
+             style="background: linear-gradient(135deg, #f093fb, #f5576c);">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="mb-1 opacity-75 small">Pendientes</p>
+                        <h2 class="mb-0 fw-bold">{{ contadores.pendiente }}</h2>
+                    </div>
+                    <i class="bi bi-clock opacity-50" style="font-size:2.5rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tareas actualmente en ejecución -->
+    <div class="col-6 col-md-3">
+        <div class="card stat-card text-white h-100"
+             style="background: linear-gradient(135deg, #4facfe, #00f2fe);">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="mb-1 opacity-75 small">En Progreso</p>
+                        <h2 class="mb-0 fw-bold">{{ contadores.en_progreso }}</h2>
+                    </div>
+                    <i class="bi bi-arrow-repeat opacity-50" style="font-size:2.5rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tareas finalizadas -->
+    <div class="col-6 col-md-3">
+        <div class="card stat-card text-white h-100"
+             style="background: linear-gradient(135deg, #43e97b, #38f9d7);">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="mb-1 opacity-75 small">Completadas</p>
+                        <h2 class="mb-0 fw-bold">{{ contadores.completado }}</h2>
+                    </div>
+                    <i class="bi bi-check-circle opacity-50" style="font-size:2.5rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Alerta de proximidad: Tareas vencidas sin completar -->
+{% if contadores.vencidas > 0 %}
+<div class="alert alert-danger d-flex align-items-center mb-4">
+    <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
+    <div>
+        ⚠️ Atención: Tienes <strong>{{ contadores.vencidas }} tarea{{ contadores.vencidas|pluralize }}</strong>
+        vencida{{ contadores.vencidas|pluralize }}.
+        <a href="{% url 'tarea_lista' %}?estado=pendiente" class="alert-link ms-1">
+            Gestionarlas ahora →
+        </a>
+    </div>
+</div>
+{% endif %}
+
+<!-- SECCIÓN 2: Visualizaciones Gráficas de Análisis -->
 <div class="row g-4 mb-4">
-    <div class="col-md-3">
-        <div class="card text-white bg-primary">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="card-title text-white-50">Proyectos Activos</h6>
-                        <h2 class="mb-0">{{ proyectos_activos }}</h2>
-                    </div>
-                    <i class="bi bi-folder" style="font-size: 2.5rem; opacity: 0.3;"></i>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-3">
-        <div class="card text-white bg-warning">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="card-title text-white-50">Tareas Pendientes</h6>
-                        <h2 class="mb-0">{{ tareas_pendientes }}</h2>
-                    </div>
-                    <i class="bi bi-list-task" style="font-size: 2.5rem; opacity: 0.3;"></i>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-3">
-        <div class="card text-white bg-info">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="card-title text-white-50">En Progreso</h6>
-                        <h2 class="mb-0">{{ tareas_en_progreso }}</h2>
-                    </div>
-                    <i class="bi bi-arrow-repeat" style="font-size: 2.5rem; opacity: 0.3;"></i>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <div class="col-md-3">
-        <div class="card text-white bg-success">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="card-title text-white-50">Completadas</h6>
-                        <h2 class="mb-0">{{ tareas_completadas }}</h2>
-                    </div>
-                    <i class="bi bi-check-circle" style="font-size: 2.5rem; opacity: 0.3;"></i>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
-<!-- Tareas recientes -->
-<div class="row">
-    <div class="col-md-8">
-        <div class="card mb-4">
-            <div class="card-header bg-white">
-                <h5 class="mb-0">Tareas Recientes</h5>
+    <!-- Distribución porcentual por estado (Dona) -->
+    <div class="col-md-4">
+        <div class="card chart-card h-100">
+            <div class="card-header bg-white border-0 pt-4 px-4">
+                <h5 class="mb-0">
+                    <i class="bi bi-pie-chart me-2 text-primary"></i>
+                    Tareas por Estado
+                </h5>
             </div>
-            <div class="card-body">
-                {% if tareas_recientes %}
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Tarea</th>
-                                <th>Proyecto</th>
-                                <th>Prioridad</th>
-                                <th>Estado</th>
-                                <th>Vencimiento</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for tarea in tareas_recientes %}
-                            <tr>
-                                <td>
-                                    <a href="#" class="text-decoration-none">{{ tarea.titulo }}</a>
-                                </td>
-                                <td>{{ tarea.proyecto.nombre }}</td>
-                                <td>
-                                    <span class="badge badge-prioridad-{{ tarea.prioridad }}">
-                                        {{ tarea.get_prioridad_display }}
-                                    </span>
-                                </td>
-                                <td>
-                                    <span class="badge bg-secondary">{{ tarea.get_estado_display }}</span>
-                                </td>
-                                <td>
-                                    {% if tarea.fecha_vencimiento %}
-                                        {{ tarea.fecha_vencimiento|date:"d/m/Y" }}
-                                        {% if tarea.esta_vencida %}
-                                            <i class="bi bi-exclamation-triangle text-danger"></i>
-                                        {% endif %}
-                                    {% else %}
-                                        -
-                                    {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+            <div class="card-body d-flex align-items-center justify-content-center">
+                {% if contadores.total > 0 %}
+                <canvas id="graficaEstados" height="250"></canvas>
                 {% else %}
-                <p class="text-muted text-center py-4">No tienes tareas asignadas</p>
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-inbox" style="font-size:3rem;"></i>
+                    <p class="mt-2">Sin actividad registrada</p>
+                </div>
                 {% endif %}
             </div>
         </div>
     </div>
-    
+
+    <!-- Carga de trabajo por nivel de prioridad (Barras) -->
     <div class="col-md-4">
-        <div class="card">
-            <div class="card-header bg-white">
-                <h5 class="mb-0">Proyectos Activos</h5>
+        <div class="card chart-card h-100">
+            <div class="card-header bg-white border-0 pt-4 px-4">
+                <h5 class="mb-0">
+                    <i class="bi bi-bar-chart me-2 text-warning"></i>
+                    Tareas por Prioridad
+                </h5>
             </div>
-            <div class="card-body">
-                {% if proyectos %}
-                <ul class="list-group list-group-flush">
-                    {% for proyecto in proyectos %}
-                    <li class="list-group-item px-0">
+            <div class="card-body d-flex align-items-center justify-content-center">
+                {% if contadores.total > 0 %}
+                <canvas id="graficaPrioridad" height="250"></canvas>
+                {% else %}
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-inbox" style="font-size:3rem;"></i>
+                    <p class="mt-2">Sin actividad registrada</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Rendimiento histórico semanal (Línea) -->
+    <div class="col-md-4">
+        <div class="card chart-card h-100">
+            <div class="card-header bg-white border-0 pt-4 px-4">
+                <h5 class="mb-0">
+                    <i class="bi bi-graph-up me-2 text-success"></i>
+                    Cumplimiento (Últimos 7 días)
+                </h5>
+            </div>
+            <div class="card-body d-flex align-items-center justify-content-center">
+                <canvas id="graficaLinea" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- SECCIÓN 3: Detalles de Proyectos y Actividad Reciente -->
+<div class="row g-4">
+
+    <!-- Listado de Proyectos Activos y su porcentaje de avance -->
+    <div class="col-md-5">
+        <div class="card chart-card h-100">
+            <div class="card-header bg-white border-0 pt-4 px-4 d-flex justify-content-between">
+                <h5 class="mb-0">
+                    <i class="bi bi-folder me-2 text-primary"></i>
+                    Proyectos en Curso
+                </h5>
+                <a href="{% url 'proyecto_lista' %}" class="btn btn-sm btn-outline-primary">
+                    Ver repositorio
+                </a>
+            </div>
+            <div class="card-body px-4">
+                {% for proyecto in proyectos_activos %}
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between mb-1">
+                        <a href="{% url 'proyecto_detalle' proyecto.pk %}" class="text-decoration-none fw-semibold text-dark">
+                            {{ proyecto.nombre }}
+                        </a>
+                        <span class="fw-bold text-primary">{{ proyecto.progreso }}%</span>
+                    </div>
+                    <div class="progress proyecto-progress">
+                        <div class="progress-bar 
+                            {% if proyecto.progreso == 100 %}bg-success
+                            {% elif proyecto.progreso >= 50 %}bg-primary
+                            {% else %}bg-warning{% endif %}"
+                             style="width:{{ proyecto.progreso }}%">
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-between mt-1">
+                        <small class="text-muted">
+                            {{ proyecto.tareas_completadas }}/{{ proyecto.total_tareas }} tareas finalizadas
+                        </small>
+                        <small class="text-muted">{{ proyecto.get_estado_display }}</small>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-folder-x" style="font-size:3rem;"></i>
+                    <p class="mt-2">No hay proyectos activos registrados</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Feed de las últimas tareas registradas o actualizadas -->
+    <div class="col-md-7">
+        <div class="card chart-card h-100">
+            <div class="card-header bg-white border-0 pt-4 px-4 d-flex justify-content-between">
+                <h5 class="mb-0">
+                    <i class="bi bi-clock-history me-2 text-info"></i>
+                    Últimas Tareas
+                </h5>
+                <a href="{% url 'tarea_lista' %}" class="btn btn-sm btn-outline-primary">
+                    Ir a tareas
+                </a>
+            </div>
+            <div class="card-body p-0">
+                {% if tareas_recientes %}
+                <div class="list-group list-group-flush">
+                    {% for tarea in tareas_recientes %}
+                    <a href="{% url 'tarea_detalle' tarea.pk %}" class="list-group-item list-group-item-action px-4 py-3">
                         <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="mb-1">{{ proyecto.nombre }}</h6>
-                                <small class="text-muted">{{ proyecto.total_tareas }} tareas</small>
+                            <div class="me-3">
+                                <p class="mb-0 fw-semibold">{{ tarea.titulo }}</p>
+                                <small class="text-muted">{{ tarea.proyecto.nombre }}</small>
                             </div>
-                            <div class="text-end">
-                                <small class="text-muted d-block">{{ proyecto.progreso }}%</small>
-                                <div class="progress" style="width: 80px; height: 5px;">
-                                    <div class="progress-bar" style="width: {{ proyecto.progreso }}%"></div>
-                                </div>
+                            <div class="text-end flex-shrink-0">
+                                <!-- Indicadores visuales de estado y prioridad -->
+                                {% if tarea.estado == 'pendiente' %}
+                                    <span class="badge bg-warning text-dark">⏳</span>
+                                {% elif tarea.estado == 'en_progreso' %}
+                                    <span class="badge bg-primary">🔄</span>
+                                {% elif tarea.estado == 'en_revision' %}
+                                    <span class="badge bg-info">👁️</span>
+                                {% else %}
+                                    <span class="badge bg-success">✅</span>
+                                {% endif %}
+
+                                {% if tarea.prioridad == 'urgente' %}
+                                    <span class="badge bg-danger ms-1">🔴</span>
+                                {% elif tarea.prioridad == 'alta' %}
+                                    <span class="badge bg-warning text-dark ms-1">🟠</span>
+                                {% endif %}
                             </div>
                         </div>
-                    </li>
+                    </a>
                     {% endfor %}
-                </ul>
+                </div>
                 {% else %}
-                <p class="text-muted text-center py-4">No hay proyectos activos</p>
+                <div class="text-center text-muted py-5">
+                    <i class="bi bi-inbox" style="font-size:3rem;"></i>
+                    <p class="mt-2">No se han registrado tareas recientemente</p>
+                </div>
                 {% endif %}
             </div>
         </div>
     </div>
+
 </div>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Integración de Charts.js para la visualización de datos dinámica -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Inyección de datos desde el contexto de Django (seguro con filtro |safe)
+    const dataEstados = {{ chart_estados|safe }};
+    const dataPrioridades = {{ chart_prioridades|safe }};
+    const dataDias = {{ chart_dias|safe }};
+    const labelsDias = {{ chart_labels_dias|safe }};
+
+    // Configuración de la Gráfica de Estados (Dona)
+    {% if contadores.total > 0 %}
+    const ctxEstados = document.getElementById('graficaEstados').getContext('2d');
+    new Chart(ctxEstados, {
+        type: 'doughnut',
+        data: {
+            labels: ['⏳ Pendiente', '🔄 En Progreso', '👁️ En Revisión', '✅ Terminada'],
+            datasets: [{
+                data: dataEstados,
+                backgroundColor: ['#ffc107', '#0d6efd', '#0dcaf0', '#198754'],
+                borderWidth: 3,
+                borderColor: '#fff',
+                hoverOffset: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            cutout: '65%',
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const porcentaje = Math.round((context.raw / total) * 100);
+                            return ` ${context.raw} tareas (${porcentaje}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Configuración de la Gráfica de Prioridades (Barras)
+    const ctxPrioridad = document.getElementById('graficaPrioridad').getContext('2d');
+    new Chart(ctxPrioridad, {
+        type: 'bar',
+        data: {
+            labels: ['🔴 Urgente', '🟠 Alta', '🔵 Media', '🟢 Baja'],
+            datasets: [{
+                label: 'Tareas',
+                data: dataPrioridades,
+                backgroundColor: [
+                    'rgba(220, 53, 69, 0.85)',
+                    'rgba(255, 193, 7, 0.85)',
+                    'rgba(13, 110, 253, 0.85)',
+                    'rgba(25, 135, 84, 0.85)',
+                ],
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1 } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+    {% endif %}
+
+    // Configuración de la Gráfica de Tendencia (Línea)
+    const ctxLinea = document.getElementById('graficaLinea').getContext('2d');
+    new Chart(ctxLinea, {
+        type: 'line',
+        data: {
+            labels: labelsDias,
+            datasets: [{
+                label: 'Tareas completadas',
+                data: dataDias,
+                borderColor: '#198754',
+                backgroundColor: 'rgba(25, 135, 84, 0.1)',
+                borderWidth: 3,
+                pointBackgroundColor: '#198754',
+                pointRadius: 5,
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1 } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+</script>
 {% endblock %}

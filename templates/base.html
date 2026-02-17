@@ -1,4 +1,8 @@
-<!-- templates/base.html -->
+{% comment %}
+Plantilla base del sistema.
+Define la estructura global (Navbar, Sidebar y Contenido principal) y los activos (CSS/JS).
+Utiliza Bootstrap 5 para el diseño responsivo y un sistema de permisos basado en roles.
+{% endcomment %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -6,9 +10,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Sistema de Tareas{% endblock %}</title>
 
-    <!-- Bootstrap 5 CSS -->
+    <!-- Activos externos: Estilos y tipografías -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
 
     {% block extra_css %}{% endblock %}
@@ -24,6 +27,7 @@
             background-color: #f8f9fa;
         }
 
+        /* Estilos de navegación y componentes globales */
         .navbar {
             background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -47,16 +51,7 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.12);
         }
 
-        .btn-primary {
-            background-color: var(--primary-color);
-            border-color: var(--primary-color);
-        }
-
-        .btn-primary:hover {
-            background-color: #4338ca;
-            border-color: #4338ca;
-        }
-
+        /* Clases de utilidad para estados de prioridad */
         .badge-prioridad-urgente { background-color: #dc2626; }
         .badge-prioridad-alta { background-color: #f59e0b; }
         .badge-prioridad-media { background-color: #3b82f6; }
@@ -67,11 +62,11 @@
 
 {% if user.is_authenticated %}
 
-<!-- Navbar -->
+<!-- Barra de navegación superior -->
 <nav class="navbar navbar-expand-lg navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand fw-bold" href="{% url 'dashboard' %}">
-            <i class="bi bi-kanban me-2"></i>Sistema de Tareas
+            <i class="bi bi-kanban me-2"></i>MiniJira
         </a>
 
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -80,6 +75,7 @@
 
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ms-auto">
+                <!-- Gestión de sesión y perfil de usuario -->
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                         <i class="bi bi-person-circle me-1"></i>
@@ -112,11 +108,11 @@
 <div class="container-fluid">
     <div class="row">
 
-        <!-- Sidebar con permisos por rol -->
+        <!-- Menú lateral (Sidebar) con filtrado de acceso según el rol del usuario -->
         <div class="col-md-3 col-lg-2 px-0 sidebar d-none d-md-block">
             <div class="p-3">
 
-                <!-- Indicador de Rol -->
+                <!-- Identificador visual del rol activo -->
                 <div class="text-center mb-3">
                     {% if user.rol == 'admin' %}
                         <span class="badge bg-danger fs-6">👑 Administrador</span>
@@ -129,14 +125,14 @@
 
                 <hr>
 
-                <!-- Menú principal -->
-                <h6 class="text-muted text-uppercase mb-3">Menú</h6>
+                <!-- Secciones de navegación principal -->
+                <h6 class="text-muted text-uppercase mb-3">Panel Principal</h6>
                 <ul class="nav flex-column">
 
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
                            href="{% url 'dashboard' %}">
-                            <i class="bi bi-speedometer2 me-2"></i>Dashboard
+                            <i class="bi bi-speedometer2 me-2"></i>Tablero
                         </a>
                     </li>
 
@@ -168,10 +164,10 @@
 
                 </ul>
 
-                <!-- Acciones rápidas -->
+                <!-- Acciones rápidas reservadas para privilegios superiores (Admin/Manager) -->
                 {% if user.rol == 'admin' or user.rol == 'manager' %}
                 <hr>
-                <h6 class="text-muted text-uppercase mb-3">Acciones</h6>
+                <h6 class="text-muted text-uppercase mb-3">Gestión</h6>
 
                 <div class="d-grid gap-2">
                     <a href="{% url 'proyecto_crear' %}" class="btn btn-primary btn-sm">
@@ -183,29 +179,25 @@
                 </div>
                 {% endif %}
 
-                <!-- Administración -->
+                <!-- Enlaces de administración exclusiva -->
                 {% if user.rol == 'admin' %}
-                <hr>
-                <h6 class="text-muted text-uppercase mb-3">Administración</h6>
+          <hr>
+<h6 class="text-muted text-uppercase mb-3">Administración</h6>
 
-                <ul class="nav flex-column">
-                    <li class="nav-item">
-                        <a class="nav-link text-danger" href="{% url 'admin:index' %}">
-                            <i class="bi bi-shield-lock me-2"></i>Panel Admin
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'admin_usuarios' %}">
-                            <i class="bi bi-people me-2"></i>Gestionar Usuarios
-                        </a>
-                    </li>
-                </ul>
+<ul class="nav flex-column">
+    <li class="nav-item">
+        <a class="nav-link text-danger" href="{% url 'admin:index' %}">
+            <i class="bi bi-shield-lock me-2"></i>Panel Admin
+        </a>
+    </li>
+    <!-- Gestión de usuarios: implementar más adelante -->
+</ul>
                 {% endif %}
 
             </div>
         </div>
 
-        <!-- Contenido principal -->
+        <!-- Área de contenido principal y visualización de mensajes del sistema -->
         <main class="col-md-9 col-lg-10 px-md-4 py-4">
 
             {% if messages %}
@@ -226,12 +218,12 @@
 
 {% else %}
 
-<!-- Contenido para usuarios NO autenticados -->
+<!-- Área reservada para vistas de autenticación (Login/Registro) -->
 {% block content_no_auth %}{% endblock %}
 
 {% endif %}
 
-<!-- Bootstrap 5 JS -->
+<!-- Scripts de Bootstrap y bloques adicionales -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 {% block extra_js %}{% endblock %}
 

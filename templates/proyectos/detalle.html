@@ -1,109 +1,294 @@
+<!-- templates/proyectos/detalle.html -->
 {% extends 'base.html' %}
 
 {% block title %}{{ proyecto.nombre }} - Sistema de Tareas{% endblock %}
 
 {% block content %}
+
+<!-- Encabezado -->
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h1 class="h2">{{ proyecto.nombre }}</h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a href="{% url 'proyecto_lista' %}">Proyectos</a>
+                </li>
+                <li class="breadcrumb-item active">{{ proyecto.nombre }}</li>
+            </ol>
+        </nav>
+        <h1 class="h2 mb-1">{{ proyecto.nombre }}</h1>
         <p class="text-muted mb-0">{{ proyecto.descripcion }}</p>
     </div>
-    <div>
-        {% if proyecto.creador == user %}
+    <div class="d-flex gap-2">
+        {% if puede_editar %}
         <a href="{% url 'proyecto_editar' proyecto.pk %}" class="btn btn-outline-primary">
-            <i class="bi bi-pencil me-2"></i>Editar
+            <i class="bi bi-pencil me-1"></i>Editar
+        </a>
+        {% endif %}
+        {% if puede_eliminar %}
+        <a href="{% url 'proyecto_eliminar' proyecto.pk %}" class="btn btn-outline-danger">
+            <i class="bi bi-trash me-1"></i>Eliminar
         </a>
         {% endif %}
     </div>
 </div>
 
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card">
-            <div class="card-body">
-                <h6 class="text-muted">Estado</h6>
-                <span class="badge bg-{{ proyecto.estado }}">{{ proyecto.get_estado_display }}</span>
+<!-- ===== TARJETAS DE ESTADÍSTICAS ===== -->
+<div class="row g-3 mb-4">
+
+    <!-- Estado -->
+    <div class="col-6 col-md-3">
+        <div class="card h-100">
+            <div class="card-body text-center py-3">
+                <p class="text-muted small mb-1">
+                    <i class="bi bi-circle-fill me-1"></i>Estado
+                </p>
+                {% if proyecto.estado == 'activo' %}
+                    <span class="badge bg-success fs-6">✅ Activo</span>
+                {% elif proyecto.estado == 'pausado' %}
+                    <span class="badge bg-warning fs-6">⏸️ Pausado</span>
+                {% elif proyecto.estado == 'completado' %}
+                    <span class="badge bg-primary fs-6">🎉 Completado</span>
+                {% else %}
+                    <span class="badge bg-secondary fs-6">❌ Cancelado</span>
+                {% endif %}
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card">
-            <div class="card-body">
-                <h6 class="text-muted">Progreso</h6>
-                <h4>{{ proyecto.progreso }}%</h4>
+
+    <!-- Progreso -->
+    <div class="col-6 col-md-3">
+        <div class="card h-100">
+            <div class="card-body text-center py-3">
+                <p class="text-muted small mb-1">
+                    <i class="bi bi-bar-chart-fill me-1"></i>Progreso
+                </p>
+                <h3 class="mb-1 fw-bold text-primary">{{ proyecto.progreso }}%</h3>
+                <div class="progress" style="height: 6px;">
+                    <div class="progress-bar bg-primary" 
+                         style="width: {{ proyecto.progreso }}%">
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card">
-            <div class="card-body">
-                <h6 class="text-muted">Tareas</h6>
-                <h4>{{ proyecto.total_tareas }}</h4>
+
+    <!-- Total Tareas -->
+    <div class="col-6 col-md-3">
+        <div class="card h-100">
+            <div class="card-body text-center py-3">
+                <p class="text-muted small mb-1">
+                    <i class="bi bi-list-task me-1"></i>Total Tareas
+                </p>
+                <h3 class="mb-0 fw-bold">{{ proyecto.total_tareas }}</h3>
             </div>
         </div>
     </div>
-    <div class="col-md-3">
-        <div class="card">
-            <div class="card-body">
-                <h6 class="text-muted">Completadas</h6>
-                <h4>{{ proyecto.tareas_completadas }}</h4>
+
+    <!-- Completadas -->
+    <div class="col-6 col-md-3">
+        <div class="card h-100">
+            <div class="card-body text-center py-3">
+                <p class="text-muted small mb-1">
+                    <i class="bi bi-check-circle-fill me-1 text-success"></i>Completadas
+                </p>
+                <h3 class="mb-0 fw-bold text-success">{{ proyecto.tareas_completadas }}</h3>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ===== CONTADORES POR ESTADO ===== -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card border-warning">
+            <div class="card-body py-2 text-center">
+                <span class="fw-bold text-warning fs-5">{{ contadores.pendiente }}</span>
+                <small class="text-muted d-block">⏳ Pendientes</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-primary">
+            <div class="card-body py-2 text-center">
+                <span class="fw-bold text-primary fs-5">{{ contadores.en_progreso }}</span>
+                <small class="text-muted d-block">🔄 En Progreso</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-info">
+            <div class="card-body py-2 text-center">
+                <span class="fw-bold text-info fs-5">{{ contadores.en_revision }}</span>
+                <small class="text-muted d-block">👁️ En Revisión</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card border-success">
+            <div class="card-body py-2 text-center">
+                <span class="fw-bold text-success fs-5">{{ contadores.completado }}</span>
+                <small class="text-muted d-block">✅ Terminadas</small>
             </div>
         </div>
     </div>
 </div>
 
+<!-- ===== TABLA DE TAREAS ===== -->
 <div class="card">
     <div class="card-header bg-white d-flex justify-content-between align-items-center">
-        <h5 class="mb-0">Tareas del Proyecto</h5>
-        <a href="{% url 'tarea_crear' %}" class="btn btn-sm btn-primary">
+        <h5 class="mb-0">
+            <i class="bi bi-list-task me-2"></i>Tareas del Proyecto
+        </h5>
+        {% if puede_crear_tarea %}
+        <a href="{% url 'tarea_crear' %}" class="btn btn-primary btn-sm">
             <i class="bi bi-plus-circle me-1"></i>Nueva Tarea
         </a>
+        {% endif %}
     </div>
-    <div class="card-body">
+    <div class="card-body p-0">
         {% if tareas %}
         <div class="table-responsive">
-            <table class="table table-hover">
-                <thead>
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
                     <tr>
-                        <th>Tarea</th>
+                        <th class="ps-3">Tarea</th>
                         <th>Responsable</th>
-                        <th>Estado</th>
                         <th>Prioridad</th>
+                        <th>Estado</th>
                         <th>Vencimiento</th>
-                        <th>Acciones</th>
+                        <th class="text-end pe-3">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for tarea in tareas %}
-                    <tr>
-                        <td>
-                            <a href="{% url 'tarea_detalle' tarea.pk %}" class="text-decoration-none">
+                    <tr {% if tarea.esta_vencida %}class="table-danger"{% endif %}>
+
+                        <!-- Título -->
+                        <td class="ps-3">
+                            <a href="{% url 'tarea_detalle' tarea.pk %}"
+                               class="text-decoration-none fw-semibold text-dark">
                                 {{ tarea.titulo }}
                             </a>
-                        </td>
-                        <td>{{ tarea.responsable.get_full_name|default:tarea.responsable.username }}</td>
-                        <td><span class="badge bg-secondary">{{ tarea.get_estado_display }}</span></td>
-                        <td><span class="badge badge-prioridad-{{ tarea.prioridad }}">{{ tarea.get_prioridad_display }}</span></td>
-                        <td>
-                            {% if tarea.fecha_vencimiento %}
-                                {{ tarea.fecha_vencimiento|date:"d/m/Y" }}
-                            {% else %}
-                                -
+                            {% if tarea.esta_vencida %}
+                                <span class="badge bg-danger ms-1">Vencida</span>
                             {% endif %}
                         </td>
+
+                        <!-- Responsable -->
                         <td>
-                            <a href="{% url 'tarea_detalle' tarea.pk %}" class="btn btn-sm btn-outline-primary">
+                            <small>
+                                {{ tarea.responsable.get_full_name|default:"Sin asignar" }}
+                            </small>
+                        </td>
+
+                        <!-- Prioridad -->
+                        <td>
+                            {% if tarea.prioridad == 'urgente' %}
+                                <span class="badge bg-danger">🔴 Urgente</span>
+                            {% elif tarea.prioridad == 'alta' %}
+                                <span class="badge bg-warning text-dark">🟠 Alta</span>
+                            {% elif tarea.prioridad == 'media' %}
+                                <span class="badge bg-primary">🔵 Media</span>
+                            {% else %}
+                                <span class="badge bg-success">🟢 Baja</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Estado -->
+                        <td>
+                            {% if tarea.estado == 'pendiente' %}
+                                <span class="badge bg-warning text-dark">⏳ Pendiente</span>
+                            {% elif tarea.estado == 'en_progreso' %}
+                                <span class="badge bg-primary">🔄 En Progreso</span>
+                            {% elif tarea.estado == 'en_revision' %}
+                                <span class="badge bg-info">👁️ En Revisión</span>
+                            {% else %}
+                                <span class="badge bg-success">✅ Terminada</span>
+                            {% endif %}
+                        </td>
+
+                        <!-- Vencimiento -->
+                        <td>
+                            {% if tarea.fecha_vencimiento %}
+                                <small class="{% if tarea.esta_vencida %}text-danger fw-bold{% else %}text-muted{% endif %}">
+                                    {{ tarea.fecha_vencimiento|date:"d/m/Y" }}
+                                </small>
+                            {% else %}
+                                <small class="text-muted">—</small>
+                            {% endif %}
+                        </td>
+
+                        <!-- Acciones -->
+                        <td class="text-end pe-3">
+                            <a href="{% url 'tarea_detalle' tarea.pk %}"
+                               class="btn btn-sm btn-outline-primary">
                                 <i class="bi bi-eye"></i>
                             </a>
                         </td>
+
                     </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
         {% else %}
-        <p class="text-muted text-center py-4">No hay tareas en este proyecto</p>
+        <div class="text-center py-5">
+            <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
+            <p class="text-muted mt-2">No hay tareas en este proyecto</p>
+            {% if puede_crear_tarea %}
+            <a href="{% url 'tarea_crear' %}" class="btn btn-primary btn-sm">
+                <i class="bi bi-plus-circle me-1"></i>Crear primera tarea
+            </a>
+            {% endif %}
+        </div>
         {% endif %}
     </div>
 </div>
+
+<!-- Info del proyecto -->
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h6 class="mb-0">📅 Fechas</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-6">
+                        <small class="text-muted">Inicio</small>
+                        <p class="fw-semibold mb-0">
+                            {{ proyecto.fecha_inicio|date:"d/m/Y" }}
+                        </p>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted">Fin estimado</small>
+                        <p class="fw-semibold mb-0">
+                            {{ proyecto.fecha_fin|date:"d/m/Y"|default:"Sin definir" }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h6 class="mb-0">👥 Miembros del Proyecto</h6>
+            </div>
+            <div class="card-body">
+                {% for miembro in proyecto.miembros.all %}
+                <span class="badge bg-light text-dark border me-1 mb-1 p-2">
+                    <i class="bi bi-person me-1"></i>
+                    {{ miembro.get_full_name|default:miembro.username }}
+                </span>
+                {% empty %}
+                <small class="text-muted">Sin miembros asignados</small>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

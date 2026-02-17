@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+
+{% block title %}Eliminar Tarea - Sistema de Tareas{% endblock %}
+
+{% block content %}
+
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item">
+            <a href="{% url 'tarea_lista' %}">Tareas</a>
+        </li>
+        <li class="breadcrumb-item">
+            <a href="{% url 'proyecto_detalle' tarea.proyecto.pk %}">
+                {{ tarea.proyecto.nombre }}
+            </a>
+        </li>
+        <li class="breadcrumb-item">
+            <a href="{% url 'tarea_detalle' tarea.pk %}">{{ tarea.titulo }}</a>
+        </li>
+        <li class="breadcrumb-item active">Eliminar</li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-md-6">
+
+        <!-- Tarjeta de confirmación -->
+        <div class="card border-danger shadow">
+
+            <!-- Header -->
+            <div class="card-header bg-danger text-white">
+                <h4 class="mb-0">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    Eliminar Tarea
+                </h4>
+            </div>
+
+            <div class="card-body p-4">
+
+                <!-- Pregunta de confirmación -->
+                <p class="fs-5 mb-4">
+                    ¿Estás seguro de que deseas eliminar esta tarea?
+                </p>
+
+                <!-- Detalle de la tarea a eliminar -->
+                <div class="card bg-light mb-4">
+                    <div class="card-body">
+
+                        <h5 class="fw-bold mb-3">
+                            <i class="bi bi-list-task me-2 text-danger"></i>
+                            {{ tarea.titulo }}
+                        </h5>
+
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <small class="text-muted d-block">Proyecto</small>
+                                <span class="fw-semibold">
+                                    {{ tarea.proyecto.nombre }}
+                                </span>
+                            </div>
+
+                            <div class="col-6">
+                                <small class="text-muted d-block">Responsable</small>
+                                <span>
+                                    {{ tarea.responsable.get_full_name|default:"Sin asignar" }}
+                                </span>
+                            </div>
+
+                            <div class="col-6">
+                                <small class="text-muted d-block">Estado</small>
+                                {% if tarea.estado == 'pendiente' %}
+                                    <span class="badge bg-warning text-dark">⏳ Pendiente</span>
+                                {% elif tarea.estado == 'en_progreso' %}
+                                    <span class="badge bg-primary">🔄 En Progreso</span>
+                                {% elif tarea.estado == 'en_revision' %}
+                                    <span class="badge bg-info">👁️ En Revisión</span>
+                                {% else %}
+                                    <span class="badge bg-success">✅ Terminada</span>
+                                {% endif %}
+                            </div>
+
+                            <div class="col-6">
+                                <small class="text-muted d-block">Prioridad</small>
+                                {% if tarea.prioridad == 'urgente' %}
+                                    <span class="badge bg-danger">🔴 Urgente</span>
+                                {% elif tarea.prioridad == 'alta' %}
+                                    <span class="badge bg-warning text-dark">🟠 Alta</span>
+                                {% elif tarea.prioridad == 'media' %}
+                                    <span class="badge bg-primary">🔵 Media</span>
+                                {% else %}
+                                    <span class="badge bg-success">🟢 Baja</span>
+                                {% endif %}
+                            </div>
+
+                            {% if tarea.fecha_vencimiento %}
+                            <div class="col-12">
+                                <small class="text-muted d-block">Vencimiento</small>
+                                <span>{{ tarea.fecha_vencimiento|date:"d/m/Y" }}</span>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Alerta de advertencia -->
+                <div class="alert alert-warning d-flex align-items-center mb-4">
+                    <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
+                    <div>
+                        <strong>¡Atención!</strong> Esta acción
+                        <strong>no se puede deshacer</strong>.
+                        Se eliminarán también todos los comentarios
+                        asociados a esta tarea.
+                    </div>
+                </div>
+
+                <!-- Botones -->
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-flex gap-3">
+                        <button type="submit" class="btn btn-danger flex-fill">
+                            <i class="bi bi-trash me-2"></i>
+                            Sí, Eliminar Tarea
+                        </button>
+                        <a href="{% url 'tarea_detalle' tarea.pk %}"
+                           class="btn btn-secondary flex-fill">
+                            <i class="bi bi-x-circle me-2"></i>
+                            Cancelar
+                        </a>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}

@@ -1,15 +1,23 @@
-# usuarios/permisos.py
+"""
+Definición de decoradores y clases de utilidad para la gestión de permisos en el sistema.
+Permite controlar el acceso a vistas y acciones basado en los roles de usuario (Admin, Manager, Miembro).
+"""
 
 from functools import wraps
 from django.shortcuts import redirect
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 
-# DECORADORES DE ROLES
-
+# ============================================
+# DECORADORES DE ACCESO POR ROL
+# ============================================
 
 def solo_admin(view_func):
-    """Solo el Administrador puede acceder"""
+    """
+    Restringe el acceso únicamente a usuarios con el rol de 'admin'.
+    Si el usuario no está autenticado, redirige al login.
+    Si el usuario no es admin, redirige al dashboard con un mensaje de error.
+    """
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
@@ -21,7 +29,10 @@ def solo_admin(view_func):
     return wrapper
 
 def admin_o_manager(view_func):
-    """Admin y Manager pueden acceder"""
+    """
+    Restringe el acceso únicamente a usuarios con rol de 'admin' o 'manager'.
+    Sigue la misma lógica de redirección que 'solo_admin'.
+    """
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
@@ -33,7 +44,10 @@ def admin_o_manager(view_func):
     return wrapper
 
 def todos_los_roles(view_func):
-    """Todos los roles autenticados pueden acceder"""
+    """
+    Asegura que el usuario esté autenticado para acceder a la vista,
+    independientemente de su rol específico.
+    """
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         if not request.user.is_authenticated:
@@ -42,37 +56,37 @@ def todos_los_roles(view_func):
     return wrapper
 
 # ============================================
-# HELPERS DE VERIFICACIÓN
+# CLASE DE VERIFICACIÓN DE PERMISOS (HELPERS)
 # ============================================
 
 class VerificarPermiso:
     """
-    Clase helper para verificar permisos
-    en cualquier parte del código
+    Provee métodos estáticos centralizados para validar permisos granulares
+    sobre objetos específicos (proyectos, tareas, usuarios).
     """
     
     @staticmethod
     def es_admin(user):
-        """Verifica si el usuario es administrador"""
+        """Valida si el usuario tiene privilegios de administrador."""
         return user.is_authenticated and user.rol == 'admin'
     
     @staticmethod
     def es_manager(user):
-        """Verifica si el usuario es manager"""
+        """Valida si el usuario tiene privilegios de manager."""
         return user.is_authenticated and user.rol == 'manager'
     
     @staticmethod
     def es_miembro(user):
-        """Verifica si el usuario es miembro"""
+        """Valida si el usuario es un miembro estándar del equipo."""
         return user.is_authenticated and user.rol == 'miembro'
     
     @staticmethod
     def puede_gestionar_proyecto(user, proyecto):
         """
-        Verifica si puede crear/editar/eliminar un proyecto
-        - Admin: siempre puede
-        - Manager: solo sus proyectos
-        - Miembro: nunca
+        Determina si un usuario puede crear, editar o eliminar un proyecto.
+        - Admin: Acceso total.
+        - Manager: Solo si es el creador del proyecto.
+        - Miembro: Sin permisos de gestión.
         """
         if user.rol == 'admin':
             return True
@@ -83,10 +97,10 @@ class VerificarPermiso:
     @staticmethod
     def puede_ver_proyecto(user, proyecto):
         """
-        Verifica si puede ver un proyecto
-        - Admin: todos los proyectos
-        - Manager: sus proyectos
-        - Miembro: proyectos donde es miembro
+        Determina si un usuario puede visualizar un proyecto.
+        - Admin: Acceso total.
+        - Manager: Solo sus proyectos.
+        - Miembro: Solo proyectos en los que participa.
         """
         if user.rol == 'admin':
             return True
@@ -99,10 +113,10 @@ class VerificarPermiso:
     @staticmethod
     def puede_gestionar_tarea(user, tarea):
         """
-        Verifica si puede crear/editar una tarea
-        - Admin: siempre puede
-        - Manager: tareas de sus proyectos
-        - Miembro: solo sus tareas asignadas
+        Determina si un usuario puede crear o editar una tarea específica.
+        - Admin: Acceso total.
+        - Manager: Solo tareas pertenecientes a sus proyectos.
+        - Miembro: Solo si es el responsable de la tarea.
         """
         if user.rol == 'admin':
             return True
@@ -115,8 +129,9 @@ class VerificarPermiso:
     @staticmethod
     def puede_eliminar_tarea(user, tarea):
         """
-        Solo Admin y Manager (dueño del proyecto) pueden eliminar
-        - Miembro: NUNCA puede eliminar
+        Determina si un usuario tiene permisos para eliminar una tarea.
+        Acceso restringido a Admins y Managers (dueños del proyecto).
+        Los miembros nunca pueden eliminar tareas.
         """
         if user.rol == 'admin':
             return True
@@ -127,10 +142,8 @@ class VerificarPermiso:
     @staticmethod
     def puede_ver_tarea(user, tarea):
         """
-        Verifica si puede ver una tarea
-        - Admin: todas las tareas
-        - Manager: tareas de sus proyectos
-        - Miembro: tareas de proyectos donde participa
+        Determina la visibilidad de una tarea.
+        Basado en el acceso del usuario al proyecto contenedor de la tarea.
         """
         if user.rol == 'admin':
             return True
@@ -142,10 +155,16 @@ class VerificarPermiso:
     
     @staticmethod
     def puede_gestionar_usuarios(user):
-        """Solo Admin puede gestionar usuarios"""
+        """
+        Verifica permisos para acceder al panel de administración de usuarios.
+        Exclusivo para administradores.
+        """
         return user.rol == 'admin'
     
     @staticmethod
     def puede_ver_reportes(user):
-        """Admin y Manager pueden ver reportes"""
+        """
+        Verifica permisos para visualizar estadísticas y reportes globales.
+        Accesible para administradores y managers.
+        """
         return user.rol in ['admin', 'manager']
