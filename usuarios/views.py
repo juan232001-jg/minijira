@@ -16,6 +16,7 @@ from .models import Usuario
 from proyectos.models import Proyecto
 from tareas.models import Tarea
 from historial.models import HistorialTarea
+from usuarios.permisos import solo_admin
 
 
 def login_view(request):
@@ -55,7 +56,6 @@ def login_view(request):
         form = LoginForm()
     
     return render(request, 'registration/login.html', {'form': form})
-
 
 def registro_view(request):
     """
@@ -210,3 +210,76 @@ def cambiar_password_view(request):
     return render(request, 'usuarios/cambiar_password.html', {
         'form': form
     })
+
+
+
+@login_required
+@solo_admin
+def admin_usuarios(request):
+    """Panel de administración de usuarios - Solo Admin"""
+    
+    usuarios = Usuario.objects.all().order_by('rol', 'username')
+    
+    # Contadores por rol
+    contadores = {
+        'total': usuarios.count(),
+        'admins': usuarios.filter(rol='admin').count(),
+        'managers': usuarios.filter(rol='manager').count(),
+        'miembros': usuarios.filter(rol='miembro').count(),
+        'activos': usuarios.filter(is_active=True).count(),
+        'inactivos': usuarios.filter(is_active=False).count(),
+    }
+    
+    context = {
+        'usuarios': usuarios,
+        'contadores': contadores,
+    }
+    return render(request, 'usuarios/admin_usuarios.html', context)
+
+
+@login_required
+@solo_admin
+def cambiar_rol_usuario(request, pk):
+    """Cambiar rol de un usuario - Solo Admin"""
+    
+    usuario = get_object_or_404(Usuario, pk=pk)
+    
+    if request.method == 'POST':
+        nuevo_rol = request.POST.get('rol')
+        if nuevo_rol in ['admin', 'manager', 'miembro']:
+            rol_anterior = usuario.rol
+            usuario.rol = nuevo_rol
+            usuario.save()
+            messages.success(
+                request,
+                f'✅ Rol de {usuario.get_full_name()} cambiado de {rol_anterior} a {nuevo_rol}.'
+            )
+        else:
+            messages.error(request, '❌ Rol no válido.')
+    
+    return redirect('admin_usuarios')
+
+
+@login_required
+@solo_admin
+def toggle_usuario_activo(request, pk):
+    """Activar/Desactivar un usuario - Solo Admin"""
+    
+    usuario = get_object_or_404(Usuario, pk=pk)
+    
+    # No permitir desactivar al propio admin
+    if usuario == request.user:
+        messages.error(request, '❌ No puedes desactivar tu propia cuenta.')
+        return redirect('admin_usuarios')
+    
+    if request.method == 'POST':
+        usuario.is_active = not usuario.is_active
+        usuario.save()
+        
+        estado = 'activado' if usuario.is_active else 'desactivado'
+        messages.success(
+            request,
+            f'✅ Usuario {usuario.get_full_name()} {estado} correctamente.'
+        )
+    
+    return redirect('admin_usuarios')

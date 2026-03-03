@@ -162,7 +162,23 @@ Utiliza Bootstrap 5 para el diseño responsivo y un sistema de permisos basado e
                         </a>
                     </li>
 
+                    <li class="nav-item">
+                        <a class="nav-link {% if 'calendario' in request.path %}active{% endif %}"
+                           href="{% url 'calendario' %}">
+                            <i class="bi bi-calendar me-2"></i>Calendario
+                        </a>
+                    </li>
+
                 </ul>
+                <!-- En templates/base.html -->
+
+<li class="nav-item">
+    <a class="nav-link {% if request.resolver_match.url_name == 'kanban' %}active{% endif %}"
+       href="{% url 'kanban' %}">
+        <i class="bi bi-kanban me-2"></i>Tablero Kanban
+    </a>
+</li>
+
 
                 <!-- Acciones rápidas reservadas para privilegios superiores (Admin/Manager) -->
                 {% if user.rol == 'admin' or user.rol == 'manager' %}
@@ -191,6 +207,12 @@ Utiliza Bootstrap 5 para el diseño responsivo y un sistema de permisos basado e
         </a>
     </li>
     <!-- Gestión de usuarios: implementar más adelante -->
+     <li class="nav-item">
+                        <a class="nav-link" href="{% url 'admin_usuarios' %}">
+                            <i class="bi bi-people me-2"></i>Gestionar Usuarios
+                        </a>
+                    </li>
+
 </ul>
                 {% endif %}
 

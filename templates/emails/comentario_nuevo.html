@@ -1,0 +1,26 @@
+{% extends 'emails/base_email.html' %}
+
+{% block content %}
+<h2>💬 Nuevo Comentario</h2>
+
+<p>Se ha agregado un nuevo comentario en una tarea que sigues:</p>
+
+<div class="info-box">
+    <h3 style="margin-top:0;">{{ tarea.titulo }}</h3>
+    <p><strong>Proyecto:</strong> {{ tarea.proyecto.nombre }}</p>
+    
+    <hr style="margin:15px 0; border:none; border-top:1px solid #dee2e6;">
+    
+    <p><strong>{{ comentario.usuario.get_full_name }}</strong> comentó:</p>
+    <p style="font-style:italic; color:#555;">
+        "{{ comentario.texto|truncatewords:50 }}"
+    </p>
+    <p style="font-size:12px; color:#6c757d; margin-top:10px;">
+        {{ comentario.creado_en|date:"d/m/Y H:i" }}
+    </p>
+</div>
+
+<center>
+    <a href="{{ url_tarea }}" class="button">Ver Conversación Completa</a>
+</center>
+{% endblock %}

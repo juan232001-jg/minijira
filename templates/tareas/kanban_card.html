@@ -1,0 +1,62 @@
+<!-- templates/tareas/kanban_card.html -->
+
+<div class="kanban-card {{ tarea.prioridad }}" 
+     data-tarea-id="{{ tarea.pk }}"
+     onclick="window.location.href='{% url 'tarea_detalle' tarea.pk %}'">
+    
+    <!-- Título -->
+    <div class="kanban-card-title">
+        {{ tarea.titulo }}
+    </div>
+    
+    <!-- Proyecto -->
+    <div class="text-muted" style="font-size: 0.75rem; margin-bottom: 8px;">
+        <i class="bi bi-folder me-1"></i>
+        {{ tarea.proyecto.nombre }}
+    </div>
+    
+    <!-- Metadata -->
+    <div class="kanban-card-meta">
+        <!-- Prioridad -->
+        {% if tarea.prioridad == 'urgente' %}
+            <span class="kanban-badge" style="background:#dc3545; color:white;">
+                🔴 Urgente
+            </span>
+        {% elif tarea.prioridad == 'alta' %}
+            <span class="kanban-badge" style="background:#fd7e14; color:white;">
+                🟠 Alta
+            </span>
+        {% elif tarea.prioridad == 'media' %}
+            <span class="kanban-badge" style="background:#0d6efd; color:white;">
+                🔵 Media
+            </span>
+        {% else %}
+            <span class="kanban-badge" style="background:#198754; color:white;">
+                🟢 Baja
+            </span>
+        {% endif %}
+        
+        <!-- Responsable -->
+        {% if tarea.responsable %}
+        <span class="kanban-badge" style="background:#f8f9fa; color:#495057;">
+            <i class="bi bi-person"></i>
+            {{ tarea.responsable.first_name|default:tarea.responsable.username }}
+        </span>
+        {% endif %}
+        
+        <!-- Vencimiento -->
+        {% if tarea.fecha_vencimiento %}
+            {% if tarea.esta_vencida and tarea.estado != 'completado' %}
+                <span class="kanban-badge vencida-badge">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Vencida
+                </span>
+            {% else %}
+                <span class="kanban-badge" style="background:#e9ecef; color:#495057;">
+                    <i class="bi bi-calendar"></i>
+                    {{ tarea.fecha_vencimiento|date:"d/m" }}
+                </span>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>

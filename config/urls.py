@@ -20,6 +20,12 @@ urlpatterns = [
     path('perfil/editar/', usuarios_views.perfil_editar_view, name='perfil_editar'),
     path('perfil/cambiar-password/', usuarios_views.cambiar_password_view, name='cambiar_password'),
     
+
+    # ===== ADMIN USUARIOS ← AGREGAR ESTO =====
+    path('admin-panel/usuarios/', usuarios_views.admin_usuarios, name='admin_usuarios'),
+    path('admin-panel/usuarios/<int:pk>/cambiar-rol/', usuarios_views.cambiar_rol_usuario, name='cambiar_rol_usuario'),
+    path('admin-panel/usuarios/<int:pk>/toggle-activo/', usuarios_views.toggle_usuario_activo, name='toggle_usuario_activo'),
+
     # ===== MÓDULOS DEL SISTEMA =====
     path('dashboard/', include('core.urls')),
     path('proyectos/', include('proyectos.urls')),

@@ -1,0 +1,35 @@
+{% extends 'emails/base_email.html' %}
+
+{% block content %}
+<h2>👋 Hola {{ responsable.get_full_name }},</h2>
+
+<p>Se te ha asignado una nueva tarea:</p>
+
+<div class="info-box">
+    <h3 style="margin-top:0;">{{ tarea.titulo }}</h3>
+    <p><strong>Proyecto:</strong> {{ tarea.proyecto.nombre }}</p>
+    <p><strong>Descripción:</strong> {{ tarea.descripcion|truncatewords:30 }}</p>
+    <p><strong>Prioridad:</strong> 
+        {% if tarea.prioridad == 'urgente' %}
+            <span class="badge badge-urgente">🔴 Urgente</span>
+        {% elif tarea.prioridad == 'alta' %}
+            <span class="badge badge-alta">🟠 Alta</span>
+        {% elif tarea.prioridad == 'media' %}
+            <span class="badge badge-media">🔵 Media</span>
+        {% else %}
+            <span class="badge badge-baja">🟢 Baja</span>
+        {% endif %}
+    </p>
+    {% if tarea.fecha_vencimiento %}
+    <p><strong>Vencimiento:</strong> {{ tarea.fecha_vencimiento|date:"d/m/Y" }}</p>
+    {% endif %}
+</div>
+
+<center>
+    <a href="{{ url_tarea }}" class="button">Ver Tarea Completa</a>
+</center>
+
+<p style="margin-top:30px; color:#6c757d;">
+    <small>Asignada por: {{ tarea.creador.get_full_name }}</small>
+</p>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends 'emails/base_email.html' %}
+
+{% block content %}
+<h2>🔴 Prioridad Cambiada a URGENTE</h2>
+
+<p>Hola {{ tarea.responsable.get_full_name }},</p>
+
+<p>La prioridad de tu tarea ha sido cambiada a <strong>URGENTE</strong>:</p>
+
+<div class="alert danger">
+    <h3 style="margin-top:0;">{{ tarea.titulo }}</h3>
+    <p><strong>Proyecto:</strong> {{ tarea.proyecto.nombre }}</p>
+    <p><strong>Prioridad anterior:</strong> {{ prioridad_anterior|upper }}</p>
+    <p><strong>Nueva prioridad:</strong> <span class="badge badge-urgente">🔴 URGENTE</span></p>
+    {% if tarea.fecha_vencimiento %}
+    <p><strong>Vencimiento:</strong> {{ tarea.fecha_vencimiento|date:"d/m/Y" }}</p>
+    {% endif %}
+</div>
+
+<p>Esta tarea requiere atención inmediata.</p>
+
+<center>
+    <a href="{{ url_tarea }}" class="button">Ver Tarea</a>
+</center>
+
+<p style="margin-top:30px; color:#6c757d;">
+    <small>Cambiado por: {{ cambiado_por.get_full_name }}</small>
+</p>
+{% endblock %}

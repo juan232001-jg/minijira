@@ -9,7 +9,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
 from django.db.models import Q
-from .models import Tarea
+from .models import Tarea , Proyecto
 from .forms import TareaForm, ComentarioForm
 from comentarios.models import Comentario
 from usuarios.permisos import VerificarPermiso, admin_o_manager
@@ -21,6 +21,17 @@ from historial.utils import (
     registrar_cambio_responsable,
     registrar_edicion,
     registrar_comentario,
+)
+
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+import json
+
+from core.emails import (
+    email_tarea_asignada,
+    email_tarea_completada,
+    email_comentario_nuevo,
+    email_cambio_prioridad,
 )
 
 @login_required
@@ -120,6 +131,10 @@ def tarea_crear(request):
             
             # Registro en el historial del sistema
             registrar_creacion(tarea, request.user)
+
+            # Enviar notificación por email al responsable
+            if tarea.responsable and tarea.responsable.email:
+                email_tarea_asignada(tarea, tarea.responsable)
             
             messages.success(request, f'✅ Tarea "{tarea.titulo}" creada exitosamente.')
             return redirect('tarea_detalle', pk=tarea.pk)
@@ -159,6 +174,29 @@ def tarea_detalle(request, pk):
             # Registro del comentario en el historial de la tarea
             registrar_comentario(tarea, request.user)
             
+            # ← ENVIAR EMAIL A USUARIOS INVOLUCRADOS
+            # Usuarios a notificar: creador, responsable, otros comentadores
+            usuarios_notificar = set()
+            if tarea.creador and tarea.creador != request.user:
+                usuarios_notificar.add(tarea.creador)
+            if tarea.responsable and tarea.responsable != request.user:
+                usuarios_notificar.add(tarea.responsable)
+            
+            # Otros que han comentado
+            otros_comentadores = Comentario.objects.filter(
+                tarea=tarea
+            ).exclude(
+                usuario=request.user
+            ).values_list('usuario', flat=True).distinct()
+            
+            from usuarios.models import Usuario
+            for user_id in otros_comentadores:
+                usuario = Usuario.objects.get(pk=user_id)
+                usuarios_notificar.add(usuario)
+            
+            if usuarios_notificar:
+                email_comentario_nuevo(comentario, list(usuarios_notificar))
+
             messages.success(request, '💬 Comentario agregado.')
             return redirect('tarea_detalle', pk=tarea.pk)
     else:
@@ -203,6 +241,13 @@ def tarea_editar(request, pk):
                     tarea_actualizada, request.user,
                     prioridad_anterior, tarea_actualizada.prioridad
                 )
+                 # ← ENVIAR EMAIL SI CAMBIÓ A URGENTE
+                email_cambio_prioridad(
+                    tarea_actualizada,
+                    prioridad_anterior,
+                    tarea_actualizada.prioridad,
+                    request.user
+                )
             
             # Auditoría de cambio de responsable
             if responsable_anterior != tarea_actualizada.responsable:
@@ -210,6 +255,9 @@ def tarea_editar(request, pk):
                     tarea_actualizada, request.user,
                     responsable_anterior, tarea_actualizada.responsable
                 )
+                # ← ENVIAR EMAIL AL NUEVO RESPONSABLE
+                if tarea_actualizada.responsable and tarea_actualizada.responsable.email:
+                    email_tarea_asignada(tarea_actualizada, tarea_actualizada.responsable)
             
             # Registro de edición general
             registrar_edicion(tarea_actualizada, request.user)
@@ -247,6 +295,7 @@ def tarea_eliminar(request, pk):
 
 @login_required
 def tarea_cambiar_estado(request, pk):
+
     """
     Actualiza específicamente el estado de una tarea.
     Calcula automáticamente la fecha de completado si el nuevo estado es final.
@@ -263,6 +312,7 @@ def tarea_cambiar_estado(request, pk):
             estado_anterior = tarea.estado
             
             tarea.estado = nuevo_estado
+
             if nuevo_estado == 'completado':
                 tarea.fecha_completado = timezone.now()
             tarea.save()
@@ -272,7 +322,141 @@ def tarea_cambiar_estado(request, pk):
                 tarea, request.user,
                 estado_anterior, nuevo_estado
             )
-            
+            # ← ENVIAR EMAIL SI SE COMPLETÓ
+            if nuevo_estado == 'completado':
+                email_tarea_completada(tarea, request.user)
             messages.success(request, f'✅ Estado actualizado a: {tarea.get_estado_display()}')
     
     return redirect('tarea_detalle', pk=pk)
+
+@login_required
+def kanban_view(request):
+    """
+    Vista del tablero Kanban
+    """
+    user = request.user
+    
+    # Filtrar tareas según rol
+    if user.rol == 'admin':
+        tareas = Tarea.objects.all()
+        proyectos = Proyecto.objects.all()
+    elif user.rol == 'manager':
+        tareas = Tarea.objects.filter(proyecto__creador=user)
+        proyectos = Proyecto.objects.filter(creador=user)
+    else:
+        tareas = Tarea.objects.filter(proyecto__miembros=user)
+        proyectos = Proyecto.objects.filter(miembros=user)
+    
+    # Filtro por proyecto (opcional)
+    proyecto_id = request.GET.get('proyecto')
+    if proyecto_id and proyecto_id.isdigit():
+        tareas = tareas.filter(proyecto_id=proyecto_id)
+    
+    # Organizar tareas por estado
+    tareas_por_estado = {
+        'pendiente': tareas.filter(estado='pendiente').select_related('proyecto', 'responsable'),
+        'en_progreso': tareas.filter(estado='en_progreso').select_related('proyecto', 'responsable'),
+        'en_revision': tareas.filter(estado='en_revision').select_related('proyecto', 'responsable'),
+        'completado': tareas.filter(estado='completado').select_related('proyecto', 'responsable'),
+    }
+    
+    # Contadores
+    contadores = {
+        'pendiente': tareas_por_estado['pendiente'].count(),
+        'en_progreso': tareas_por_estado['en_progreso'].count(),
+        'en_revision': tareas_por_estado['en_revision'].count(),
+        'completado': tareas_por_estado['completado'].count(),
+    }
+    
+    context = {
+        'tareas_por_estado': tareas_por_estado,
+        'contadores': contadores,
+        'proyectos': proyectos.filter(estado='activo'),
+        'proyecto_seleccionado': proyecto_id,
+        'puede_crear': user.rol in ['admin', 'manager'],
+    }
+    
+    return render(request, 'tareas/kanban.html', context)
+
+
+@login_required
+@require_POST
+def kanban_actualizar_estado(request):
+    """
+    API para actualizar el estado de una tarea desde el Kanban
+    """
+    try:
+        # Parsear JSON del request
+        data = json.loads(request.body)
+        tarea_id = data.get('tarea_id')
+        nuevo_estado = data.get('nuevo_estado')
+        
+        # Validaciones
+        if not tarea_id or not nuevo_estado:
+            return JsonResponse({
+                'success': False,
+                'error': 'Datos incompletos'
+            }, status=400)
+        
+        # Obtener tarea
+        tarea = get_object_or_404(Tarea, pk=tarea_id)
+        
+        # Verificar permisos
+        if not VerificarPermiso.puede_gestionar_tarea(request.user, tarea):
+            return JsonResponse({
+                'success': False,
+                'error': 'No tienes permiso para modificar esta tarea'
+            }, status=403)
+        
+        # Validar que el estado sea válido
+        estados_validos = ['pendiente', 'en_progreso', 'en_revision', 'completado']
+        if nuevo_estado not in estados_validos:
+            return JsonResponse({
+                'success': False,
+                'error': 'Estado no válido'
+            }, status=400)
+        
+        # Guardar estado anterior
+        estado_anterior = tarea.estado
+        
+        # Actualizar estado
+        tarea.estado = nuevo_estado
+        
+        # Si se completó, registrar fecha
+        if nuevo_estado == 'completado':
+            tarea.fecha_completado = timezone.now()
+        
+        tarea.save()
+        
+        # Registrar en historial
+        registrar_cambio_estado(
+            tarea, request.user,
+            estado_anterior, nuevo_estado
+        )
+        
+        # Enviar email si se completó
+        if nuevo_estado == 'completado':
+            try:
+                email_tarea_completada(tarea, request.user)
+            except:
+                pass  # No fallar si el email falla
+        
+        # Respuesta exitosa
+        return JsonResponse({
+            'success': True,
+            'message': f'Tarea movida a {tarea.get_estado_display()}',
+            'tarea_id': tarea.pk,
+            'nuevo_estado': nuevo_estado,
+            'estado_display': tarea.get_estado_display(),
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'JSON inválido'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)

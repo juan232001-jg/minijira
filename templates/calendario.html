@@ -1,0 +1,439 @@
+{% extends 'base.html' %}
+
+{% block title %}Calendario - Sistema de Tareas{% endblock %}
+
+{% block extra_css %}
+<!-- FullCalendar CSS -->
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
+<style>
+    .fc {
+        font-family: inherit;
+    }
+    .fc-toolbar-title {
+        font-size: 1.3rem !important;
+        font-weight: 600 !important;
+        text-transform: capitalize;
+    }
+    .fc-event {
+        cursor: pointer;
+        border-radius: 5px;
+        font-size: 0.8rem;
+        padding: 2px 4px;
+        border: none !important;
+    }
+    .fc-event:hover {
+        opacity: 0.85;
+        transform: scale(1.02);
+    }
+    .fc-day-today {
+        background-color: rgba(13, 110, 253, 0.05) !important;
+    }
+    .fc-daygrid-day-number {
+        font-weight: 500;
+        color: #333;
+    }
+
+    /* Popup de tarea */
+    #popup-tarea {
+        display: none;
+        position: fixed;
+        z-index: 9999;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        padding: 20px;
+        min-width: 280px;
+        max-width: 350px;
+        border-top: 4px solid #0d6efd;
+    }
+
+    /* Leyenda de colores */
+    .leyenda-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.85rem;
+    }
+    .leyenda-color {
+        width: 14px;
+        height: 14px;
+        border-radius: 3px;
+        flex-shrink: 0;
+    }
+
+    /* Loading */
+    #loading {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Encabezado -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h2 mb-0">
+            <i class="bi bi-calendar3 me-2"></i>Calendario de Tareas
+        </h1>
+        <p class="text-muted mb-0">
+            Visualiza tus tareas organizadas por fecha de vencimiento
+        </p>
+    </div>
+    <div class="d-flex gap-2 align-items-center">
+        <!-- Filtro Mis Tareas -->
+        <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" 
+                   id="switchMisTareas" role="switch">
+            <label class="form-check-label" for="switchMisTareas">
+                Solo mis tareas
+            </label>
+        </div>
+        <!-- Ir a Hoy -->
+        <button id="btnHoy" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-calendar-check me-1"></i>Hoy
+        </button>
+    </div>
+</div>
+
+<div class="row g-4">
+
+    <!-- ===== COLUMNA PRINCIPAL: CALENDARIO ===== -->
+    <div class="col-lg-9">
+        <div class="card shadow-sm">
+            <div class="card-body p-3" style="position: relative; min-height: 500px;">
+                <!-- Loading -->
+                <div id="loading" class="text-center text-muted">
+                    <div class="spinner-border text-primary mb-2" role="status"></div>
+                    <p>Cargando calendario...</p>
+                </div>
+                <!-- Calendario -->
+                <div id="calendar"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== COLUMNA LATERAL ===== -->
+    <div class="col-lg-3">
+
+        <!-- Leyenda de Colores -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-white">
+                <h6 class="mb-0">
+                    <i class="bi bi-palette me-2"></i>Prioridades
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="leyenda-item mb-2">
+                    <div class="leyenda-color" style="background:#dc3545;"></div>
+                    <span>🔴 Urgente</span>
+                </div>
+                <div class="leyenda-item mb-2">
+                    <div class="leyenda-color" style="background:#fd7e14;"></div>
+                    <span>🟠 Alta</span>
+                </div>
+                <div class="leyenda-item mb-2">
+                    <div class="leyenda-color" style="background:#0d6efd;"></div>
+                    <span>🔵 Media</span>
+                </div>
+                <div class="leyenda-item mb-2">
+                    <div class="leyenda-color" style="background:#198754;"></div>
+                    <span>🟢 Baja</span>
+                </div>
+                <div class="leyenda-item">
+                    <div class="leyenda-color" style="background:#6c757d;"></div>
+                    <span>⚫ Vencida</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tareas de Hoy -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header bg-white">
+                <h6 class="mb-0">
+                    <i class="bi bi-calendar-day me-2"></i>Hoy
+                </h6>
+            </div>
+            <div class="card-body p-0" id="tareas-hoy">
+                <div class="text-center text-muted py-3">
+                    <small>Cargando...</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Próximas a Vencer -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <h6 class="mb-0">
+                    <i class="bi bi-clock-history me-2"></i>
+                    Próximas (7 días)
+                </h6>
+            </div>
+            <div class="card-body p-0" id="proximas-tareas">
+                <div class="text-center text-muted py-3">
+                    <small>Cargando...</small>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- ===== POPUP DE DETALLE DE TAREA ===== -->
+<div id="popup-tarea">
+    <div class="d-flex justify-content-between align-items-start mb-2">
+        <h6 class="mb-0 fw-bold" id="popup-titulo"></h6>
+        <button onclick="cerrarPopup()" 
+                class="btn-close btn-sm ms-2" 
+                style="font-size:0.7rem;"></button>
+    </div>
+    <div class="text-muted small mb-3">
+        <div class="mb-1">
+            <i class="bi bi-folder me-1"></i>
+            <span id="popup-proyecto"></span>
+        </div>
+        <div class="mb-1">
+            <i class="bi bi-person me-1"></i>
+            <span id="popup-responsable"></span>
+        </div>
+        <div class="mb-1">
+            <i class="bi bi-flag me-1"></i>
+            <span id="popup-prioridad"></span>
+        </div>
+        <div>
+            <i class="bi bi-circle me-1"></i>
+            <span id="popup-estado"></span>
+        </div>
+    </div>
+    <div id="popup-vencida" class="alert alert-danger py-1 px-2 small mb-2" 
+         style="display:none;">
+        ⚠️ Esta tarea está vencida
+    </div>
+    <a id="popup-link" href="#" class="btn btn-primary btn-sm w-100">
+        <i class="bi bi-eye me-1"></i>Ver Tarea
+    </a>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- FullCalendar JS -->
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/locales/es.global.min.js"></script>
+
+<script>
+let calendar;
+let misTareas = false;
+
+document.addEventListener('DOMContentLoaded', function() {
+    
+    iniciarCalendario();
+    cargarTareasLateral();
+    
+    // Switch de "solo mis tareas"
+    document.getElementById('switchMisTareas').addEventListener('change', function() {
+        misTareas = this.checked;
+        calendar.refetchEvents();
+        cargarTareasLateral();
+    });
+    
+    // Botón "Hoy"
+    document.getElementById('btnHoy').addEventListener('click', function() {
+        calendar.today();
+    });
+
+    // Cerrar popup al hacer click fuera
+    document.addEventListener('click', function(e) {
+        const popup = document.getElementById('popup-tarea');
+        if (!popup.contains(e.target) && !e.target.closest('.fc-event')) {
+            cerrarPopup();
+        }
+    });
+});
+
+
+function iniciarCalendario() {
+    const calendarEl = document.getElementById('calendar');
+    document.getElementById('loading').style.display = 'block';
+    
+    calendar = new FullCalendar.Calendar(calendarEl, {
+        
+        // Configuración general
+        locale: 'es',
+        initialView: 'dayGridMonth',
+        height: 'auto',
+        
+        // Barra de herramientas
+        headerToolbar: {
+            left: 'prev,next',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,listWeek'
+        },
+        
+        // Botones personalizados en español
+        buttonText: {
+            month: 'Mes',
+            week: 'Semana',
+            list: 'Lista',
+            today: 'Hoy'
+        },
+        
+        // Fuente de eventos (desde Django)
+        events: function(info, successCallback, failureCallback) {
+            fetch(`/dashboard/calendario/eventos/?mis_tareas=${misTareas}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('loading').style.display = 'none';
+                    successCallback(data);
+                })
+                .catch(error => {
+                    console.error('Error cargando eventos:', error);
+                    failureCallback(error);
+                });
+        },
+        
+        // Click en un evento
+        eventClick: function(info) {
+            info.jsEvent.preventDefault();
+            mostrarPopup(info.event, info.jsEvent);
+        },
+        
+        // Hover en evento
+        eventMouseEnter: function(info) {
+            info.el.style.transform = 'scale(1.03)';
+            info.el.style.transition = 'transform 0.1s';
+            info.el.style.zIndex = '100';
+        },
+        eventMouseLeave: function(info) {
+            info.el.style.transform = 'scale(1)';
+            info.el.style.zIndex = '';
+        },
+        
+        // Formato del día
+        dayMaxEvents: 3,
+        moreLinkText: function(n) {
+            return `+${n} más`;
+        },
+        
+        // Resaltar día de hoy
+        nowIndicator: true,
+    });
+    
+    calendar.render();
+}
+
+
+function mostrarPopup(evento, jsEvent) {
+    const popup = document.getElementById('popup-tarea');
+    const props = evento.extendedProps;
+    
+    // Llenar datos
+    document.getElementById('popup-titulo').textContent = evento.title;
+    document.getElementById('popup-proyecto').textContent = props.proyecto;
+    document.getElementById('popup-responsable').textContent = props.responsable;
+    document.getElementById('popup-prioridad').textContent = props.prioridad;
+    document.getElementById('popup-estado').textContent = props.estado;
+    document.getElementById('popup-link').href = evento.url;
+    
+    // Mostrar alerta si está vencida
+    const alertVencida = document.getElementById('popup-vencida');
+    alertVencida.style.display = props.vencida ? 'block' : 'none';
+    
+    // Posicionar popup
+    popup.style.display = 'block';
+    
+    const x = jsEvent.clientX;
+    const y = jsEvent.clientY;
+    const winW = window.innerWidth;
+    const winH = window.innerHeight;
+    
+    // Ajustar posición para que no salga de la pantalla
+    const popupW = 320;
+    const popupH = 200;
+    
+    popup.style.left = (x + popupW > winW ? x - popupW : x + 10) + 'px';
+    popup.style.top = (y + popupH > winH ? y - popupH : y + 10) + 'px';
+}
+
+
+function cerrarPopup() {
+    document.getElementById('popup-tarea').style.display = 'none';
+}
+
+
+function cargarTareasLateral() {
+    fetch(`/dashboard/calendario/eventos/?mis_tareas=${misTareas}`)
+        .then(r => r.json())
+        .then(eventos => {
+            
+            const hoy = new Date().toISOString().split('T')[0];
+            const en7dias = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+                                .toISOString().split('T')[0];
+            
+            // Filtrar tareas de hoy
+            const tareasHoy = eventos.filter(e => e.start === hoy);
+            
+            // Filtrar próximas 7 días
+            const proximas = eventos.filter(e => e.start > hoy && e.start <= en7dias);
+            
+            // Renderizar tareas de hoy
+            const contenedorHoy = document.getElementById('tareas-hoy');
+            if (tareasHoy.length > 0) {
+                contenedorHoy.innerHTML = tareasHoy.map(t => `
+                    <a href="${t.url}" 
+                       class="list-group-item list-group-item-action px-3 py-2 border-0">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="rounded" 
+                                 style="width:8px; height:8px; background:${t.backgroundColor}; flex-shrink:0;">
+                            </div>
+                            <small class="text-truncate">${t.title}</small>
+                        </div>
+                    </a>
+                `).join('');
+            } else {
+                contenedorHoy.innerHTML = `
+                    <div class="text-center text-muted py-3">
+                        <i class="bi bi-check-circle text-success"></i>
+                        <small class="d-block">Sin tareas hoy ✅</small>
+                    </div>
+                `;
+            }
+            
+            // Renderizar próximas tareas
+            const contenedorProximas = document.getElementById('proximas-tareas');
+            if (proximas.length > 0) {
+                contenedorProximas.innerHTML = proximas.map(t => {
+                    const fecha = new Date(t.start + 'T00:00:00');
+                    const opciones = { day: 'numeric', month: 'short' };
+                    const fechaStr = fecha.toLocaleDateString('es-ES', opciones);
+                    return `
+                        <a href="${t.url}" 
+                           class="list-group-item list-group-item-action px-3 py-2 border-0">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="rounded" 
+                                         style="width:8px; height:8px; background:${t.backgroundColor}; flex-shrink:0;">
+                                    </div>
+                                    <small class="text-truncate">${t.title}</small>
+                                </div>
+                                <small class="text-muted ms-2 flex-shrink-0">${fechaStr}</small>
+                            </div>
+                        </a>
+                    `;
+                }).join('');
+            } else {
+                contenedorProximas.innerHTML = `
+                    <div class="text-center text-muted py-3">
+                        <i class="bi bi-calendar-check text-success"></i>
+                        <small class="d-block">Sin vencimientos próximos ✅</small>
+                    </div>
+                `;
+            }
+        })
+        .catch(err => console.error('Error cargando tareas laterales:', err));
+}
+</script>
+{% endblock %}

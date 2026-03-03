@@ -1,0 +1,22 @@
+{% extends 'emails/base_email.html' %}
+
+{% block content %}
+<h2>⚠️ Tarea Vencida</h2>
+
+<p>Hola {{ responsable.get_full_name }},</p>
+
+<p>La siguiente tarea ha superado su fecha de vencimiento:</p>
+
+<div class="alert danger">
+    <h3 style="margin-top:0;">{{ tarea.titulo }}</h3>
+    <p><strong>Proyecto:</strong> {{ tarea.proyecto.nombre }}</p>
+    <p><strong>Fecha de vencimiento:</strong> {{ tarea.fecha_vencimiento|date:"d/m/Y" }}</p>
+    <p><strong>Estado actual:</strong> {{ tarea.get_estado_display }}</p>
+</div>
+
+<p>Por favor, actualiza el estado de la tarea lo antes posible.</p>
+
+<center>
+    <a href="{{ url_tarea }}" class="button">Ir a la Tarea</a>
+</center>
+{% endblock %}

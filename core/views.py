@@ -15,6 +15,7 @@ from tareas.models import Tarea
 
 @login_required
 def dashboard(request):
+
     """
     Controlador principal del tablero de mandos (Dashboard).
     
@@ -104,3 +105,84 @@ def dashboard(request):
     }
 
     return render(request, 'dashboard.html', context)
+
+@login_required
+def calendario(request):
+    """
+    Controlador del calendario de eventos.
+    
+    Muestra un calendario interactivo con eventos programados.
+    """
+    return render(request, 'calendario.html')
+
+@login_required
+def calendario_eventos(request):
+    """
+    Retorna las tareas en formato JSON para FullCalendar
+    Solo tareas con fecha de vencimiento
+    """
+    user = request.user
+
+    # Filtrar tareas según rol
+    if user.rol == 'admin':
+        tareas = Tarea.objects.all()
+    elif user.rol == 'manager':
+        tareas = Tarea.objects.filter(proyecto__creador=user)
+    else:
+        tareas = Tarea.objects.filter(proyecto__miembros=user)
+
+    # Filtro opcional: solo mis tareas
+    solo_mis_tareas = request.GET.get('mis_tareas', 'false') == 'true'
+    if solo_mis_tareas:
+        tareas = tareas.filter(responsable=user)
+
+    # Solo tareas con fecha de vencimiento
+    tareas = tareas.filter(
+        fecha_vencimiento__isnull=False
+    ).select_related('proyecto', 'responsable')
+
+    # Colores por prioridad
+    colores_prioridad = {
+        'urgente': '#dc3545',  # Rojo
+        'alta':    '#fd7e14',  # Naranja
+        'media':   '#0d6efd',  # Azul
+        'baja':    '#198754',  # Verde
+    }
+
+    # Colores de borde por estado
+    bordes_estado = {
+        'pendiente':   '#ffc107',  # Amarillo
+        'en_progreso': '#0d6efd',  # Azul
+        'en_revision': '#0dcaf0',  # Cyan
+        'completado':  '#198754',  # Verde
+    }
+
+    # Construir eventos para FullCalendar
+    eventos = []
+    for tarea in tareas:
+        # Determinar si está vencida
+        esta_vencida = (
+            tarea.fecha_vencimiento < timezone.now().date() and
+            tarea.estado != 'completado'
+        )
+
+        color = '#6c757d' if esta_vencida else colores_prioridad.get(tarea.prioridad, '#0d6efd')
+
+        eventos.append({
+            'id': tarea.pk,
+            'title': tarea.titulo,
+            'start': tarea.fecha_vencimiento.isoformat(),
+            'url': f'/tareas/{tarea.pk}/',
+            'backgroundColor': color,
+            'borderColor': bordes_estado.get(tarea.estado, '#0d6efd'),
+            'textColor': '#ffffff',
+            'extendedProps': {
+                'proyecto': tarea.proyecto.nombre,
+                'responsable': tarea.responsable.get_full_name() if tarea.responsable else 'Sin asignar',
+                'prioridad': tarea.get_prioridad_display() if hasattr(tarea, 'get_prioridad_display') else tarea.prioridad,
+                'estado': tarea.get_estado_display() if hasattr(tarea, 'get_estado_display') else tarea.estado,
+                'vencida': esta_vencida,
+            }
+        })
+
+    return JsonResponse(eventos, safe=False)

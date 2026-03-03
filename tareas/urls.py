@@ -24,4 +24,8 @@ urlpatterns = [
     
     # Acción específica para el cambio rápido de estado
     path('<int:pk>/cambiar-estado/', views.tarea_cambiar_estado, name='tarea_cambiar_estado'),
+
+    # accion de  urls kanban
+    path('kanban/', views.kanban_view, name='kanban'),
+    path('kanban/actualizar/', views.kanban_actualizar_estado, name='kanban_actualizar'),
 ]
